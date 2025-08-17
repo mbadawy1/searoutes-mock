@@ -1,0 +1,38 @@
+[
+  {
+    "id": "ex-001",
+    "origin": "Port Said, EG",
+    "destination": "Valencia, ES",
+    "etd": "2025-08-20T12:00:00Z",
+    "eta": "2025-08-31T08:00:00Z",
+    "vessel": "MSC Example",
+    "voyage": "EX123",
+    "routingType": "Direct",
+    "transitDays": 11,
+    "carrier": "MSC"
+  },
+  {
+    "id": "ex-002",
+    "origin": "Damietta, EG",
+    "destination": "Algeciras, ES",
+    "etd": "2025-08-22T10:00:00Z",
+    "eta": "2025-09-02T16:00:00Z",
+    "vessel": "Maersk Sample",
+    "voyage": "MSK88",
+    "routingType": "Transshipment",
+    "transitDays": 11,
+    "carrier": "MAERSK"
+  },
+  {
+    "id": "ex-003",
+    "origin": "Alexandria, EG",
+    "destination": "Valencia, ES",
+    "etd": "2025-08-25T09:00:00Z",
+    "eta": "2025-09-05T15:00:00Z",
+    "vessel": "Hapag Trial",
+    "voyage": "HAP777",
+    "routingType": "Direct",
+    "transitDays": 11,
+    "carrier": "HAPAG-LLOYD"
+  }
+]
