@@ -1,0 +1,98 @@
+{
+  "items": [
+    {
+      "hash": "hl-egaly-matng-2508e",
+      "features": [
+        {
+          "properties": {
+            "carrier": "Hapag-Lloyd",
+            "carrierScac": "HLCU",
+            "serviceId": "FE3",
+            "vessel": {
+              "name": "MV Orange Nile",
+              "imo": "9301111",
+              "voyage": "2508E"
+            },
+            "departure": {
+              "locode": "EGALY",
+              "time": "2025-08-21T23:00:00"
+            },
+            "arrival": {
+              "locode": "ITGIT",
+              "time": "2025-08-25T08:00:00"
+            },
+            "transitTimeDays": 4
+          }
+        },
+        {
+          "properties": {
+            "carrier": "Hapag-Lloyd",
+            "carrierScac": "HLCU",
+            "serviceId": "FE3",
+            "vessel": {
+              "name": "MV Orange Nile",
+              "imo": "9301111",
+              "voyage": "2508E"
+            },
+            "departure": {
+              "locode": "ITGIT",
+              "time": "2025-08-25T18:00:00"
+            },
+            "arrival": {
+              "locode": "MATNG",
+              "time": "2025-08-30T07:00:00"
+            },
+            "transitTimeDays": 5
+          }
+        }
+      ]
+    },
+    {
+      "hash": "msc-egaly-matng-88w",
+      "features": [
+        {
+          "properties": {
+            "carrier": "MSC",
+            "carrierScac": "MSCU",
+            "serviceId": "MED1",
+            "vessel": {
+              "name": "MSC Al Zahra",
+              "imo": "9302222",
+              "voyage": "88W"
+            },
+            "departure": {
+              "locode": "EGALY",
+              "time": "2025-08-22T12:00:00"
+            },
+            "arrival": {
+              "locode": "ESALG",
+              "time": "2025-08-26T05:00:00"
+            },
+            "transitTimeDays": 4
+          }
+        },
+        {
+          "properties": {
+            "carrier": "MSC",
+            "carrierScac": "MSCU",
+            "serviceId": "MED1",
+            "vessel": {
+              "name": "MSC Al Zahra",
+              "imo": "9302222",
+              "voyage": "88W"
+            },
+            "departure": {
+              "locode": "ESALG",
+              "time": "2025-08-26T18:00:00"
+            },
+            "arrival": {
+              "locode": "MATNG",
+              "time": "2025-08-29T22:00:00"
+            },
+            "transitTimeDays": 3
+          }
+        }
+      ]
+    }
+  ]
+}

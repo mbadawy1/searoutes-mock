@@ -1,0 +1,11 @@
+﻿# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+# Local env/secrets
+.env
+.env.*
+# OS/editor junk
+.DS_Store
+Thumbs.db

@@ -1,0 +1,19 @@
+openapi: 3.0.3
+info:
+  title: Searoutes Schedules Mock
+  version: "0.2"
+servers:
+  - url: http://localhost:4010
+paths:
+  /itinerary/v2/execution:
+    get:
+      summary: Get ocean schedules (mock)
+      parameters:
+        - in: query
+          name: fromLocode
+          required: true
+          schema: { type: string }
+        - in: query
+          name: toLocode
+          required: true
+          schema: { type: string }

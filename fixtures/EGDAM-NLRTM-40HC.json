@@ -1,0 +1,98 @@
+{
+  "items": [
+    {
+      "hash": "cma-egdam-nlrtm-s12",
+      "features": [
+        {
+          "properties": {
+            "carrier": "CMA CGM",
+            "carrierScac": "CMAU",
+            "serviceId": "EUR1",
+            "vessel": {
+              "name": "CMA CGM Atlas",
+              "imo": "9303333",
+              "voyage": "S12"
+            },
+            "departure": {
+              "locode": "EGDAM",
+              "time": "2025-08-22T18:00:00"
+            },
+            "arrival": {
+              "locode": "MATNG",
+              "time": "2025-08-26T09:00:00"
+            },
+            "transitTimeDays": 4
+          }
+        },
+        {
+          "properties": {
+            "carrier": "CMA CGM",
+            "carrierScac": "CMAU",
+            "serviceId": "EUR1",
+            "vessel": {
+              "name": "CMA CGM Atlas",
+              "imo": "9303333",
+              "voyage": "S12"
+            },
+            "departure": {
+              "locode": "MATNG",
+              "time": "2025-08-27T12:00:00"
+            },
+            "arrival": {
+              "locode": "NLRTM",
+              "time": "2025-09-02T06:00:00"
+            },
+            "transitTimeDays": 6
+          }
+        }
+      ]
+    },
+    {
+      "hash": "hl-egdam-nlrtm-2510e",
+      "features": [
+        {
+          "properties": {
+            "carrier": "Hapag-Lloyd",
+            "carrierScac": "HLCU",
+            "serviceId": "NWX",
+            "vessel": {
+              "name": "MV Baltic Star",
+              "imo": "9304444",
+              "voyage": "2510E"
+            },
+            "departure": {
+              "locode": "EGDAM",
+              "time": "2025-08-24T04:00:00"
+            },
+            "arrival": {
+              "locode": "DEHAM",
+              "time": "2025-08-30T22:00:00"
+            },
+            "transitTimeDays": 6
+          }
+        },
+        {
+          "properties": {
+            "carrier": "Hapag-Lloyd",
+            "carrierScac": "HLCU",
+            "serviceId": "NWX",
+            "vessel": {
+              "name": "MV Baltic Star",
+              "imo": "9304444",
+              "voyage": "2510E"
+            },
+            "departure": {
+              "locode": "DEHAM",
+              "time": "2025-08-31T18:00:00"
+            },
+            "arrival": {
+              "locode": "NLRTM",
+              "time": "2025-09-01T12:00:00"
+            },
+            "transitTimeDays": 1
+          }
+        }
+      ]
+    }
+  ]
+}

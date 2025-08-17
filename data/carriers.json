@@ -1,0 +1,34 @@
+[
+  {
+    "name": "MSC Mediterranean Shipping Company",
+    "scac": "MSCU"
+  },
+  {
+    "name": "Hapag-Lloyd",
+    "scac": "HLCU"
+  },
+  {
+    "name": "CMA CGM",
+    "scac": "CMAU"
+  },
+  {
+    "name": "Ocean Network Express (ONE)",
+    "scac": "ONEY"
+  },
+  {
+    "name": "COSCO",
+    "scac": "COSU"
+  },
+  {
+    "name": "HMM",
+    "scac": "HMMU"
+  },
+  {
+    "name": "Yang Ming",
+    "scac": "YMLU"
+  },
+  {
+    "name": "Maersk",
+    "scac": "MAEU"
+  }
+]

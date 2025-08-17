@@ -1,0 +1,267 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Schedules Viewer</title>
+  <style>
+    :root { --bg:#0f172a; --panel:#111827; --muted:#94a3b8; --text:#e5e7eb; --accent:#22d3ee; --accent-2:#a78bfa; --ok:#22c55e; --warn:#f59e0b; --err:#ef4444; }
+    html,body{height:100%} body{margin:0;font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,Helvetica,Arial;background:linear-gradient(180deg,#0b1020,#0f172a 30%);color:var(--text)}
+    .wrap{max-width:1200px;margin:32px auto;padding:0 16px} h1{font-size:22px;margin:0 0 14px} .card{background:rgba(17,24,39,.7);backdrop-filter:blur(6px);border:1px solid rgba(255,255,255,.06);border-radius:18px;padding:16px;box-shadow:0 10px 30px rgba(0,0,0,.35)}
+    .row{display:grid;grid-template-columns:repeat(12,1fr);gap:10px}.row+.row{margin-top:10px} label{font-size:12px;color:var(--muted);display:block;margin:0 0 6px}
+    input[type=text],input[type=date],select{width:100%;border-radius:12px;background:#0b1020;border:1px solid rgba(255,255,255,.09);color:var(--text);padding:10px 12px;outline:none}
+    input::placeholder{color:#64748b}.btn{cursor:pointer;border:0;border-radius:12px;padding:10px 14px;font-weight:600;background:linear-gradient(135deg,var(--accent),var(--accent-2));color:#0a0a0a}
+    .btn:disabled{opacity:.5;cursor:not-allowed}.toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.hint{color:var(--muted);font-size:12px}.status{font-size:12px}
+    table{width:100%;border-collapse:collapse;margin-top:14px} th,td{padding:10px 8px;text-align:left;font-size:13px;vertical-align:top}
+    thead th{position:sticky;top:0;background:#101826;z-index:5;border-bottom:1px solid rgba(255,255,255,.08)} tbody tr{border-bottom:1px dashed rgba(255,255,255,.06)}
+    .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace} details{background:#0b1222;border:1px solid rgba(255,255,255,.08);padding:8px 10px;border-radius:12px}
+    .badge{display:inline-block;padding:2px 8px;border-radius:999px;font-size:12px;background:#0b1222;border:1px solid rgba(255,255,255,.12)} .right{text-align:right}.muted{color:var(--muted)} .grid-2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+    .foot{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:10px} .link{color:var(--accent);text-decoration:none}
+    .dropdown{position:relative} .suggest{position:absolute;left:0;right:0;top:100%;background:#0b1222;border:1px solid rgba(255,255,255,.1);border-radius:12px;z-index:10;max-height:220px;overflow:auto;display:none}
+    .suggest div{padding:8px 10px;cursor:pointer} .suggest div:hover{background:#0e1a32}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Schedules Viewer <span class="hint">— local mock now • swap Base URL to go real</span></h1>
+
+    <div class="card">
+      <form id="search-form">
+        <div class="row">
+          <div class="col" style="grid-column: span 6;">
+            <label>Base URL</label>
+            <input id="baseUrl" type="text" value="http://127.0.0.1:4010" />
+            <div class="hint">Mock: http://127.0.0.1:4010 • Real: https://api.searoutes.com (via proxy recommended)</div>
+          </div>
+          <div class="col" style="grid-column: span 3;">
+            <label>API Key (only for real API; ignored by mock)</label>
+            <input id="apiKey" type="text" placeholder="Bearer token" />
+          </div>
+          <div class="col" style="grid-column: span 3;">
+            <label>Carrier (SCAC)</label>
+            <select id="carrier">
+              <option value="">All</option>
+              <option value="HLCU">Hapag-Lloyd (HLCU)</option>
+              <option value="CMAU">CMA CGM (CMAU)</option>
+              <option value="MSCU">MSC (MSCU)</option>
+              <option value="ONEY">ONE (ONEY)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="row" style="margin-top:6px;">
+          <div class="col dropdown" style="grid-column: span 3;">
+            <label>From (search name or country)</label>
+            <input id="fromInput" type="text" placeholder="e.g., Egypt, Alexandria, EGALY" autocomplete="off" />
+            <div id="fromSuggest" class="suggest"></div>
+          </div>
+          <div class="col dropdown" style="grid-column: span 3;">
+            <label>To (search name or country)</label>
+            <input id="toInput" type="text" placeholder="e.g., Morocco, Tanger, MATNG" autocomplete="off" />
+            <div id="toSuggest" class="suggest"></div>
+          </div>
+          <div class="col" style="grid-column: span 2;">
+            <label>From date</label>
+            <input id="fromDate" type="date" />
+          </div>
+          <div class="col" style="grid-column: span 2;">
+            <label>To date</label>
+            <input id="toDate" type="date" />
+          </div>
+          <div class="col" style="grid-column: span 2;">
+            <label>Equipment</label>
+            <select id="equipment">
+              <option value="">Any</option>
+              <option value="20DC">20DC</option>
+              <option value="40DC">40DC</option>
+              <option value="40HC">40HC</option>
+              <option value="40RF" selected>40RF</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="foot">
+          <div class="toolbar">
+            <button id="searchBtn" class="btn" type="submit">Search</button>
+            <button id="csvBtn" class="btn" type="button" disabled>Export CSV</button>
+            <button id="xlsxBtn" class="btn" type="button" disabled>Export Excel</button>
+            <label class="muted">Sort by</label>
+            <select id="sortBy">
+              <option value="ETD">ETD (earliest first)</option>
+              <option value="TRANSIT">Transit time</option>
+            </select>
+            <span class="hint">Quick pairs:</span>
+            <a href="#" class="link" data-demo="EGALY|MATNG|40RF">EGALY→MATNG (40RF)</a>
+            <a href="#" class="link" data-demo="EGDAM|NLRTM|40HC">EGDAM→NLRTM (40HC)</a>
+            <a href="#" class="link" data-demo="EGDAM|ESVLC|40HC">EGDAM→ESVLC (40HC)</a>
+          </div>
+          <div id="status" class="status muted">Idle</div>
+        </div>
+      </form>
+    </div>
+
+    <div id="results" class="card" style="margin-top:14px;">
+      <div class="muted">No results yet. Run a search.</div>
+    </div>
+  </div>
+
+  <script>
+    const els = {
+      baseUrl: document.getElementById('baseUrl'),
+      apiKey: document.getElementById('apiKey'),
+      carrier: document.getElementById('carrier'),
+      fromInput: document.getElementById('fromInput'),
+      toInput: document.getElementById('toInput'),
+      fromSuggest: document.getElementById('fromSuggest'),
+      toSuggest: document.getElementById('toSuggest'),
+      fromDate: document.getElementById('fromDate'),
+      toDate: document.getElementById('toDate'),
+      equipment: document.getElementById('equipment'),
+      sortBy: document.getElementById('sortBy'),
+      status: document.getElementById('status'),
+      results: document.getElementById('results'),
+      csvBtn: document.getElementById('csvBtn'),
+      xlsxBtn: document.getElementById('xlsxBtn'),
+      form: document.getElementById('search-form')
+    };
+
+    // Defaults
+    const today = new Date(); const addDays = (d,n)=>{const x=new Date(d);x.setDate(x.getDate()+n);return x}; const fmtDate = d => new Date(d).toISOString().slice(0,10);
+    els.fromDate.value = fmtDate(today); els.toDate.value = fmtDate(addDays(today, 14));
+    els.fromInput.value = "EGALY"; els.toInput.value = "MATNG";
+
+    function fmtDT(s){ try{const d=new Date(s); return d.toLocaleString()}catch{return s} }
+    const sum = (a,fn)=>a.reduce((x,y)=>x+(fn?fn(y):y),0);
+
+    // Port search helpers
+    async function portSuggest(which, q){
+      const box = which === 'from' ? els.fromSuggest : els.toSuggest;
+      if (!q || q.length < 2) { box.style.display='none'; box.innerHTML=''; return }
+      try{
+        const url = new URL('/ports/search', els.baseUrl.value);
+        url.searchParams.set('q', q);
+        const res = await fetch(url.toString()); if(!res.ok) throw new Error('port search failed');
+        const data = await res.json();
+        box.innerHTML = (data.items||[]).map(p=>`<div data-locode="${p.locode}">${p.name} <span class="muted mono">(${p.locode}, ${p.country})</span></div>`).join('');
+        box.style.display = (data.items&&data.items.length) ? 'block' : 'none';
+      }catch(e){
+        box.style.display='none'; box.innerHTML='';
+      }
+    }
+    ['from','to'].forEach(which=>{
+      const input = which==='from' ? els.fromInput : els.toInput;
+      const box = which==='from' ? els.fromSuggest : els.toSuggest;
+      input.addEventListener('input', ()=> portSuggest(which, input.value.trim()));
+      box.addEventListener('click', e=>{
+        const t = e.target.closest('div'); if(!t) return;
+        input.value = t.dataset.locode;
+        box.style.display='none';
+      });
+      document.addEventListener('click', (e)=>{ if(!box.contains(e.target) && e.target!==input){ box.style.display='none'; } });
+    });
+
+    function render(items){
+      if (!items || !items.length) { els.results.innerHTML = '<div class="muted">No itineraries found for your query.</div>'; els.csvBtn.disabled=true; els.xlsxBtn.disabled=true; return; }
+
+      const rows = items.map(it=>{
+        const legs = (it.features||[]).map((f,i)=>{
+          const p=f.properties||{}; 
+          return {
+            seq:i+1,
+            from: p?.departure?.locode, fromTime: p?.departure?.time,
+            to: p?.arrival?.locode, toTime: p?.arrival?.time,
+            transit: p?.transitTimeDays||0,
+            service: p?.serviceId,
+            vessel: p?.vessel?.name, voyage: p?.vessel?.voyage, imo: p?.vessel?.imo,
+            carrier: p?.carrier, scac: p?.carrierScac
+          };
+        });
+        const totalTransit = sum(legs, l=>l.transit);
+        const etd = legs[0]?.fromTime||''; const eta = legs[legs.length-1]?.toTime||'';
+        const routing = legs.length<=1 ? 'Direct' : `Transshipment ×${legs.length-1}`;
+        const first = legs[0]||{};
+        return { hash: it.hash, legs, totalTransit, etd, eta, routing, first };
+      });
+
+      // sort
+      const sb = els.sortBy.value;
+      rows.sort((a,b)=> sb==='TRANSIT' ? a.totalTransit - b.totalTransit : (new Date(a.etd)-new Date(b.etd)) );
+
+      // table
+      let html = '<table><thead><tr><th>#</th><th>Departure</th><th>Arrival</th><th>Carrier</th><th>Service</th><th>Vessel / Voyage</th><th>ETD</th><th>ETA</th><th class="right">Transit (d)</th><th>Routing</th><th>Legs</th></tr></thead><tbody>';
+      rows.forEach((r, idx)=>{
+        const f = r.first, l = r.legs[r.legs.length-1] || {};
+        html += `<tr>
+          <td class="mono">${String(idx+1).padStart(2,'0')}</td>
+          <td class="mono">${f.from||''}</td>
+          <td class="mono">${l.to||''}</td>
+          <td>${f.carrier||''} <span class="badge mono">${f.scac||''}</span></td>
+          <td class="mono">${f.service||''}</td>
+          <td>${f.vessel||''} <span class="mono">${f.voyage||''}</span><br><span class="muted mono">IMO ${f.imo||''}</span></td>
+          <td class="mono">${fmtDT(r.etd)}</td>
+          <td class="mono">${fmtDT(r.eta)}</td>
+          <td class="right mono">${r.totalTransit}</td>
+          <td>${r.routing}</td>
+          <td>
+            <details><summary>Show ${r.legs.length} leg(s)</summary>
+              <div style="margin-top:6px">
+                ${r.legs.map(lg=>`<div class="grid-2">
+                  <div><span class="badge mono">${lg.seq}</span> <strong class="mono">${lg.from}</strong> → <strong class="mono">${lg.to}</strong></div>
+                  <div class="muted">${fmtDT(lg.fromTime)} → ${fmtDT(lg.toTime)} <span class="mono">(${lg.transit}d)</span></div>
+                </div>`).join('')}
+              </div>
+            </details>
+          </td>
+        </tr>`;
+      });
+      html += '</tbody></table>';
+      els.results.innerHTML = html;
+
+      // Enable exports
+      els.csvBtn.disabled = false;
+      els.xlsxBtn.disabled = false;
+      els.csvBtn.onclick = ()=> doExport('csv');
+      els.xlsxBtn.onclick = ()=> doExport('xlsx');
+    }
+
+    function buildParams(){
+      const p = new URLSearchParams();
+      p.set('fromLocode', els.fromInput.value.trim());
+      p.set('toLocode', els.toInput.value.trim());
+      if (els.fromDate.value) p.set('fromDate', els.fromDate.value);
+      if (els.toDate.value) p.set('toDate', els.toDate.value);
+      if (els.equipment.value) p.set('equipment', els.equipment.value);
+      if (els.carrier.value) p.set('carrierScac', els.carrier.value);
+      return p;
+    }
+
+    async function runSearch(ev){
+      ev && ev.preventDefault();
+      els.status.textContent = 'Loading…';
+      const url = new URL('/itinerary/v2/execution', els.baseUrl.value);
+      url.search = buildParams().toString();
+      try{
+        const headers = {}; const key = els.apiKey.value.trim(); if (key) headers['Authorization'] = `Bearer ${key}`;
+        const res = await fetch(url.toString(), { headers });
+        if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+        const data = await res.json();
+        render(data.items||[]);
+        els.status.textContent = `OK • ${new Date().toLocaleTimeString()} • ${data.items?.length||0} itineraries`;
+      }catch(e){ els.results.innerHTML = `<div style="color:var(--err)">Error: ${e.message||e}</div>`; els.status.textContent = 'Error'; }
+    }
+
+    function doExport(kind){
+      const base = new URL(kind==='csv'? '/export/csv' : '/export/xlsx', els.baseUrl.value);
+      base.search = buildParams().toString();
+      window.location.href = base.toString();
+    }
+
+    els.form.addEventListener('submit', runSearch);
+    els.sortBy.addEventListener('change', ()=> runSearch(new Event('submit')));
+    for (const link of document.querySelectorAll('[data-demo]')){
+      link.addEventListener('click', (e)=>{ e.preventDefault(); const [f,t,eq]=link.dataset.demo.split('|'); els.fromInput.value=f; els.toInput.value=t; els.equipment.value=eq; runSearch(new Event('submit')); });
+    }
+    runSearch(new Event('submit'));
+  </script>
+</body>
+</html>

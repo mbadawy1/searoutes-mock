@@ -1,0 +1,51 @@
+{
+  "items": [
+    {
+      "hash": "one-egdam-esvlc-25a",
+      "features": [
+        {
+          "properties": {
+            "carrier": "ONE",
+            "carrierScac": "ONEY",
+            "serviceId": "MED2",
+            "vessel": {
+              "name": "ONE Magnolia",
+              "imo": "9305555",
+              "voyage": "25A"
+            },
+            "departure": {
+              "locode": "EGDAM",
+              "time": "2025-08-23T10:00:00"
+            },
+            "arrival": {
+              "locode": "ESALG",
+              "time": "2025-08-28T06:00:00"
+            },
+            "transitTimeDays": 5
+          }
+        },
+        {
+          "properties": {
+            "carrier": "ONE",
+            "carrierScac": "ONEY",
+            "serviceId": "MED2",
+            "vessel": {
+              "name": "ONE Magnolia",
+              "imo": "9305555",
+              "voyage": "25A"
+            },
+            "departure": {
+              "locode": "ESALG",
+              "time": "2025-08-28T20:00:00"
+            },
+            "arrival": {
+              "locode": "ESVLC",
+              "time": "2025-08-30T18:00:00"
+            },
+            "transitTimeDays": 2
+          }
+        }
+      ]
+    }
+  ]
+}
