@@ -1,0 +1,5 @@
+{
+  "includeDirectories": ["backend", "frontend", "data", "providers", "."],
+  "ignore": ["node_modules", ".venv", ".git", "dist", "build", "tmp", "coverage"],
+  "model": "gemini-2.5-pro"
+}

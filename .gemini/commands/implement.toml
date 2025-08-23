@@ -1,0 +1,27 @@
+name = "implement"
+description = "Generate a minimal patch (UNIFIED DIFFs preferred) that satisfies the current task while honoring contracts and scope."
+prompt = '''Produce either:
+- UNIFIED DIFFs (preferred), or
+- Full file contents (only for small files) — but still within scope.
+
+Rules you MUST follow:
+- Keep within ≤ ~300 LOC total and ≤ 5 files changed/created.
+- Preserve API envelope exactly: {"items":[...],"total":int,"page":int,"pageSize":int}
+- Sorting is server-side only (?sort=etd|transit; default=etd). Do not add client-side sorting.
+- Exports include the full filtered+sorted dataset (ignore pagination), with this CSV/XLSX column order:
+  originLocode,destinationLocode,etd,eta,vessel,voyage,carrier,routingType,transitDays,service
+- Accept from/to as query params but map internally to date_from/date_to via Pydantic aliases.
+- No secrets in client. Do not introduce new external services unless the task explicitly requires it.
+- Prefer editing existing files. Only create files that the current task clearly needs.
+- Limit changes to: backend, frontend, data, providers (unless AGENTS.md says otherwise).
+- Keep code idiomatic; run-through should be compatible with black and ruff defaults.
+
+Patch format:
+1) Start with a short "Affected files" list (≤5) — absolute repo paths.
+2) Then provide diffs (or full bodies). For diffs, use git-style unified diff that applies cleanly.
+3) End with a "Verification" block that includes:
+   - How to run the server
+   - curl command(s) to smoke-test the change
+   - (Optional) pytest snippet if applicable
+
+Make the patch minimal and deterministic. If you find ambiguity, choose the smallest working option and leave a TODO in code comments.'''

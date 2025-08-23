@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shipping Schedule Search - Test</title>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: #0a0f1a;
+            color: #e5e7eb;
+            font-family: system-ui, sans-serif;
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+        
+        // API helpers
+        const API_BASE = 'http://localhost:8003';
+
+        const apiRequest = async (endpoint, options = {}) => {
+            const url = `${API_BASE}${endpoint}`;
+            
+            try {
+                const response = await fetch(url, {
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...options.headers,
+                    },
+                    ...options,
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
+                return await response.json();
+            } catch (error) {
+                throw error;
+            }
+        };
+
+        const listSchedules = async (params = {}) => {
+            const searchParams = new URLSearchParams();
+            
+            Object.entries(params).forEach(([key, value]) => {
+                if (value !== undefined && value !== null && value !== '') {
+                    searchParams.append(key, String(value));
+                }
+            });
+
+            const endpoint = `/api/schedules${searchParams.toString() ? `?${searchParams}` : ''}`;
+            return apiRequest(endpoint);
+        };
+
+        const searchPorts = async (query, limit = 15) => {
+            if (!query || query.length < 2) {
+                return [];
+            }
+
+            const searchParams = new URLSearchParams({
+                q: query,
+                limit: String(limit),
+            });
+
+            const endpoint = `/api/ports/search?${searchParams}`;
+            const response = await apiRequest(endpoint);
+            return response || [];
+        };
+
+        // Simple PortSelect component for testing
+        function PortSelect({ label, value, onChange, placeholder, disabled }) {
+            const [query, setQuery] = useState(value || "");
+            const [open, setOpen] = useState(false);
+            const [items, setItems] = useState([]);
+            const [loading, setLoading] = useState(false);
+            const boxRef = useRef(null);
+
+            const isLocode = (s) => /^[A-Z]{2}[A-Z]{3}$/.test(s.toUpperCase());
+
+            useEffect(() => {
+                if (value && value !== query) setQuery(value);
+            }, [value]);
+
+            useEffect(() => {
+                const q = query.trim();
+                if (q.length < 2 || isLocode(q)) {
+                    setItems([]);
+                    setOpen(false);
+                    return;
+                }
+                
+                setLoading(true);
+                const timer = setTimeout(async () => {
+                    try {
+                        const data = await searchPorts(q);
+                        setItems(data);
+                        setOpen(data.length > 0);
+                    } catch {
+                        setItems([]);
+                        setOpen(false);
+                    } finally {
+                        setLoading(false);
+                    }
+                }, 250);
+
+                return () => clearTimeout(timer);
+            }, [query]);
+
+            const pick = (locode) => {
+                onChange(locode.toUpperCase());
+                setQuery(locode.toUpperCase());
+                setOpen(false);
+            };
+
+            return (
+                <div ref={boxRef} style={{ position: "relative" }}>
+                    <label style={{ display: "block", fontSize: 12, color: "#94a3b8", marginBottom: 6 }}>
+                        {label}
+                    </label>
+                    <input
+                        type="text"
+                        placeholder={placeholder}
+                        value={query}
+                        disabled={disabled}
+                        onChange={(e) => {
+                            const v = e.target.value;
+                            setQuery(v);
+                            if (isLocode(v)) {
+                                onChange(v.toUpperCase());
+                            }
+                        }}
+                        onFocus={() => setOpen(items.length > 0)}
+                        style={{
+                            width: "100%",
+                            borderRadius: 12,
+                            background: "#0b1020",
+                            border: "1px solid rgba(255,255,255,.12)",
+                            color: "#e5e7eb",
+                            padding: "10px 12px",
+                            outline: "none",
+                        }}
+                    />
+                    <div style={{ fontSize: 12, color: "#94a3b8", marginTop: 4, minHeight: 18 }}>
+                        {isLocode(query) ? "Looks like a valid UN/LOCODE" : 
+                         loading ? "Searching…" : 
+                         open && items.length === 0 && query.length >= 2 ? "No matches" : ""}
+                    </div>
+
+                    {open && items.length > 0 && (
+                        <div style={{
+                            position: "absolute",
+                            left: 0,
+                            right: 0,
+                            zIndex: 20,
+                            background: "#0b1222",
+                            border: "1px solid rgba(255,255,255,.12)",
+                            borderRadius: 12,
+                            maxHeight: 240,
+                            overflowY: "auto",
+                        }}>
+                            {items.map((p, i) => {
+                                const display = `${p.name} (${p.locode}, ${p.country})`;
+                                return (
+                                    <div
+                                        key={`${p.locode}-${i}`}
+                                        onClick={() => pick(p.locode)}
+                                        style={{
+                                            padding: "8px 10px",
+                                            cursor: "pointer",
+                                            display: "flex",
+                                            justifyContent: "space-between",
+                                            gap: 8,
+                                        }}
+                                        onMouseEnter={(e) => e.target.style.background = "#0e1a32"}
+                                        onMouseLeave={(e) => e.target.style.background = "transparent"}
+                                    >
+                                        <span>{display}</span>
+                                        <span style={{ color: "#94a3b8", fontFamily: "ui-monospace, Menlo, Consolas, monospace" }}>
+                                            {p.countryName || ""}
+                                        </span>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
+                </div>
+            );
+        }
+
+        // Simple DateRange component for testing
+        function DateRange({ fromDate, toDate, onFromChange, onToChange, disabled }) {
+            const isValid = !fromDate || !toDate || fromDate <= toDate;
+
+            const inputStyle = {
+                width: "100%",
+                borderRadius: 12,
+                background: "#0b1020",
+                border: "1px solid rgba(255,255,255,.12)",
+                color: "#e5e7eb",
+                padding: "10px 12px",
+                outline: "none",
+                fontSize: "14px",
+            };
+
+            return (
+                <div style={{ display: "flex", gap: 16, alignItems: "flex-end" }}>
+                    <div style={{ flex: 1 }}>
+                        <label style={{ display: "block", fontSize: 12, color: "#94a3b8", marginBottom: 6 }}>
+                            Departure From
+                        </label>
+                        <input
+                            type="date"
+                            value={fromDate}
+                            disabled={disabled}
+                            onChange={(e) => onFromChange(e.target.value)}
+                            style={inputStyle}
+                        />
+                    </div>
+
+                    <div style={{ flex: 1 }}>
+                        <label style={{ display: "block", fontSize: 12, color: "#94a3b8", marginBottom: 6 }}>
+                            Departure To
+                        </label>
+                        <input
+                            type="date"
+                            value={toDate}
+                            disabled={disabled}
+                            onChange={(e) => onToChange(e.target.value)}
+                            style={inputStyle}
+                        />
+                    </div>
+
+                    <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: 12, color: "#ef4444", marginTop: 4, minHeight: 18 }}>
+                            {!isValid && fromDate && toDate && (
+                                <span>From date must be before or equal to To date</span>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        // Main ScheduleTable component
+        function ScheduleTable() {
+            const [originLocode, setOriginLocode] = useState("");
+            const [destinationLocode, setDestinationLocode] = useState("");
+            const [fromDate, setFromDate] = useState("");
+            const [toDate, setToDate] = useState("");
+            const [sort, setSort] = useState('etd');
+            const [schedules, setSchedules] = useState([]);
+            const [loading, setLoading] = useState(false);
+            const [error, setError] = useState(null);
+            const [total, setTotal] = useState(0);
+
+            const isDateValid = !fromDate || !toDate || fromDate <= toDate;
+            const canSearch = isDateValid;
+
+            const handleSearch = async () => {
+                if (!canSearch) return;
+
+                setLoading(true);
+                setError(null);
+
+                try {
+                    const params = {};
+                    if (originLocode) params.origin = originLocode;
+                    if (destinationLocode) params.destination = destinationLocode;
+                    if (fromDate) params.from = fromDate;
+                    if (toDate) params.to = toDate;
+                    params.sort = sort;
+
+                    const response = await listSchedules(params);
+                    setSchedules(response.items);
+                    setTotal(response.total);
+                } catch (err) {
+                    setError(err.message);
+                    setSchedules([]);
+                    setTotal(0);
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            const formatDateTime = (isoString) => {
+                try {
+                    return new Date(isoString).toLocaleString();
+                } catch {
+                    return isoString;
+                }
+            };
+
+            return (
+                <div style={{
+                    maxWidth: "1400px",
+                    margin: "0 auto",
+                    padding: "20px",
+                    fontFamily: "system-ui, sans-serif",
+                    background: "#0a0f1a",
+                    color: "#e5e7eb",
+                    minHeight: "100vh",
+                }}>
+                    <h1 style={{ marginBottom: "24px", fontSize: "28px", fontWeight: 700 }}>
+                        Shipping Schedule Search
+                    </h1>
+
+                    <div style={{
+                        background: "#0b1222",
+                        border: "1px solid rgba(255,255,255,.12)",
+                        borderRadius: 16,
+                        padding: "24px",
+                        marginBottom: "24px",
+                    }}>
+                        <div style={{
+                            display: "grid",
+                            gridTemplateColumns: "1fr 1fr",
+                            gap: "20px",
+                            marginBottom: "20px",
+                        }}>
+                            <PortSelect
+                                label="From Port"
+                                value={originLocode}
+                                onChange={setOriginLocode}
+                                placeholder="Start typing a country, city, or LOCODE"
+                                disabled={loading}
+                            />
+                            <PortSelect
+                                label="To Port"
+                                value={destinationLocode}
+                                onChange={setDestinationLocode}
+                                placeholder="Start typing a country, city, or LOCODE"
+                                disabled={loading}
+                            />
+                        </div>
+
+                        <div style={{ marginBottom: "20px" }}>
+                            <DateRange
+                                fromDate={fromDate}
+                                toDate={toDate}
+                                onFromChange={setFromDate}
+                                onToChange={setToDate}
+                                disabled={loading}
+                            />
+                        </div>
+
+                        <div style={{
+                            display: "grid",
+                            gridTemplateColumns: "1fr 1fr",
+                            gap: "20px",
+                        }}>
+                            <div>
+                                <label style={{ display: "block", fontSize: 12, color: "#94a3b8", marginBottom: 6 }}>
+                                    Sort By
+                                </label>
+                                <select
+                                    value={sort}
+                                    onChange={(e) => setSort(e.target.value)}
+                                    disabled={loading}
+                                    style={{
+                                        width: "100%",
+                                        borderRadius: 12,
+                                        background: "#0b1020",
+                                        border: "1px solid rgba(255,255,255,.12)",
+                                        color: "#e5e7eb",
+                                        padding: "10px 12px",
+                                        outline: "none",
+                                        fontSize: "14px",
+                                        cursor: "pointer",
+                                    }}
+                                >
+                                    <option value="etd">Departure Date (ETD)</option>
+                                    <option value="transit">Transit Time</option>
+                                </select>
+                            </div>
+                            <div></div>
+                        </div>
+
+                        <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "24px" }}>
+                            <button
+                                onClick={handleSearch}
+                                disabled={!canSearch || loading}
+                                style={{
+                                    background: canSearch ? "#3b82f6" : "#374151",
+                                    color: canSearch ? "#ffffff" : "#9ca3af",
+                                    border: "none",
+                                    borderRadius: 12,
+                                    padding: "12px 24px",
+                                    fontSize: "14px",
+                                    fontWeight: 600,
+                                    cursor: canSearch ? "pointer" : "not-allowed",
+                                    transition: "all 0.2s",
+                                }}
+                            >
+                                {loading ? "Searching..." : "Search Schedules"}
+                            </button>
+                        </div>
+                    </div>
+
+                    {error && (
+                        <div style={{
+                            background: "#ef4444",
+                            color: "#ffffff",
+                            padding: "12px 16px",
+                            borderRadius: 8,
+                            marginBottom: "24px",
+                            fontSize: "14px",
+                        }}>
+                            Error: {error}
+                        </div>
+                    )}
+
+                    {schedules.length > 0 && (
+                        <div style={{ marginBottom: "16px", fontSize: "14px", color: "#94a3b8" }}>
+                            Showing {schedules.length} of {total} schedules
+                        </div>
+                    )}
+
+                    {schedules.length > 0 ? (
+                        <div style={{ overflowX: "auto" }}>
+                            <table style={{
+                                width: "100%",
+                                borderCollapse: "collapse",
+                                background: "#0b1222",
+                                border: "1px solid rgba(255,255,255,.12)",
+                                borderRadius: 12,
+                                overflow: "hidden",
+                            }}>
+                                <thead>
+                                    <tr>
+                                        <th style={{
+                                            background: "#1e293b",
+                                            color: "#f1f5f9",
+                                            padding: "12px",
+                                            textAlign: "left",
+                                            fontWeight: 600,
+                                            fontSize: "14px",
+                                            borderBottom: "1px solid rgba(255,255,255,.12)",
+                                        }}>Departure</th>
+                                        <th style={{
+                                            background: "#1e293b",
+                                            color: "#f1f5f9",
+                                            padding: "12px",
+                                            textAlign: "left",
+                                            fontWeight: 600,
+                                            fontSize: "14px",
+                                            borderBottom: "1px solid rgba(255,255,255,.12)",
+                                        }}>Arrival</th>
+                                        <th style={{
+                                            background: "#1e293b",
+                                            color: "#f1f5f9",
+                                            padding: "12px",
+                                            textAlign: "left",
+                                            fontWeight: 600,
+                                            fontSize: "14px",
+                                            borderBottom: "1px solid rgba(255,255,255,.12)",
+                                        }}>Carrier</th>
+                                        <th style={{
+                                            background: "#1e293b",
+                                            color: "#f1f5f9",
+                                            padding: "12px",
+                                            textAlign: "left",
+                                            fontWeight: 600,
+                                            fontSize: "14px",
+                                            borderBottom: "1px solid rgba(255,255,255,.12)",
+                                        }}>ETD</th>
+                                        <th style={{
+                                            background: "#1e293b",
+                                            color: "#f1f5f9",
+                                            padding: "12px",
+                                            textAlign: "left",
+                                            fontWeight: 600,
+                                            fontSize: "14px",
+                                            borderBottom: "1px solid rgba(255,255,255,.12)",
+                                        }}>ETA</th>
+                                        <th style={{
+                                            background: "#1e293b",
+                                            color: "#f1f5f9",
+                                            padding: "12px",
+                                            textAlign: "left",
+                                            fontWeight: 600,
+                                            fontSize: "14px",
+                                            borderBottom: "1px solid rgba(255,255,255,.12)",
+                                        }}>Transit</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {schedules.map((schedule) => (
+                                        <tr key={schedule.id}>
+                                            <td style={{
+                                                padding: "12px",
+                                                borderBottom: "1px solid rgba(255,255,255,.06)",
+                                                fontSize: "14px",
+                                            }}>{schedule.origin}</td>
+                                            <td style={{
+                                                padding: "12px",
+                                                borderBottom: "1px solid rgba(255,255,255,.06)",
+                                                fontSize: "14px",
+                                            }}>{schedule.destination}</td>
+                                            <td style={{
+                                                padding: "12px",
+                                                borderBottom: "1px solid rgba(255,255,255,.06)",
+                                                fontSize: "14px",
+                                            }}>{schedule.carrier}</td>
+                                            <td style={{
+                                                padding: "12px",
+                                                borderBottom: "1px solid rgba(255,255,255,.06)",
+                                                fontSize: "14px",
+                                            }}>{formatDateTime(schedule.etd)}</td>
+                                            <td style={{
+                                                padding: "12px",
+                                                borderBottom: "1px solid rgba(255,255,255,.06)",
+                                                fontSize: "14px",
+                                            }}>{formatDateTime(schedule.eta)}</td>
+                                            <td style={{
+                                                padding: "12px",
+                                                borderBottom: "1px solid rgba(255,255,255,.06)",
+                                                fontSize: "14px",
+                                            }}>{schedule.transitDays} days</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    ) : !loading && !error && (
+                        <div style={{
+                            textAlign: "center",
+                            padding: "48px",
+                            color: "#94a3b8",
+                            fontSize: "16px",
+                        }}>
+                            No schedules found. Try adjusting your search criteria.
+                        </div>
+                    )}
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(React.createElement(ScheduleTable));
+    </script>
+</body>
+</html>

@@ -1,0 +1,176 @@
+/* DateRange.css - Accessible dark theme for react-day-picker */
+
+/* CSS Custom Properties (Design Tokens) */
+.date-range-picker {
+  --bg: #0B1220;
+  --surface: #0F172A; 
+  --text: #CBD5E1;
+  --text-weak: #94A3B8;
+  --grid: #1F2937;
+  --accent: #6366F1;
+  --accent-strong: #4F46E5; 
+  --accent-weak: rgba(99,102,241,0.22);
+  --ring: #A78BFA;
+}
+
+/* Force proper range styling with high specificity */
+
+/* Endpoints (solid accent with white text) */
+.date-range-picker .rdp-day_range_start:not(.rdp-day_disabled),
+.date-range-picker .rdp-day_range_end:not(.rdp-day_disabled),
+.date-range-picker .rdp-day_selected:not(.rdp-day_disabled) {
+  background: var(--accent-strong) !important;
+  color: #fff !important;
+  box-shadow: none !important; /* Kill the white chip behind endpoints */
+}
+
+/* Middle of the range (tinted accent with normal text) */
+.date-range-picker .rdp-day_range_middle:not(.rdp-day_disabled) {
+  background: var(--accent-weak) !important;   /* rgba(99,102,241,.22) */
+  color: var(--text) !important;               /* #CBD5E1 */
+  box-shadow: none !important;
+}
+
+/* Today indicator (outline ring, not fill) */
+.date-range-picker .rdp-day_today {
+  outline: 2px solid var(--ring) !important;
+  outline-offset: 2px !important;
+  background: transparent !important;
+}
+
+/* Out-of-month days (muted) */
+.date-range-picker .rdp-day_outside {
+  color: var(--text-weak) !important;
+  background: transparent !important;
+}
+
+/* Disabled days */
+.date-range-picker .rdp-day_disabled {
+  color: #475569 !important;
+  background: transparent !important;
+  cursor: not-allowed !important;
+}
+
+/* Regular days */
+.date-range-picker .rdp-day {
+  color: var(--text) !important;
+  border-radius: 12px !important;
+  border: none !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  font-variant-numeric: tabular-nums !important; /* Better number alignment */
+}
+
+/* Hover state */
+.date-range-picker .rdp-day:hover:not(.rdp-day_disabled):not(.rdp-day_selected):not(.rdp-day_range_start):not(.rdp-day_range_end) {
+  background: var(--grid) !important;
+}
+
+/* Month styling */
+.date-range-picker .rdp-months {
+  display: flex !important;
+  gap: 16px !important;
+  background: var(--surface) !important;
+  color: var(--text) !important;
+}
+
+.date-range-picker .rdp-month {
+  color: var(--text) !important;
+}
+
+/* Header styling */
+.date-range-picker .rdp-head_cell {
+  color: var(--text-weak) !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+}
+
+/* Caption styling */
+.date-range-picker .rdp-caption {
+  color: var(--text) !important;
+  font-size: 16px !important;
+  font-weight: 600 !important;
+  margin-bottom: 8px !important;
+}
+
+.date-range-picker .rdp-caption_label {
+  color: var(--text) !important;
+  font-size: 16px !important;
+  font-weight: 600 !important;
+}
+
+/* Navigation buttons */
+.date-range-picker .rdp-nav_button {
+  color: var(--text) !important;
+  background: transparent !important;
+  border: 1px solid var(--grid) !important;
+  border-radius: 8px !important;
+  font-size: 14px !important;
+}
+
+.date-range-picker .rdp-nav_button_previous,
+.date-range-picker .rdp-nav_button_next {
+  color: var(--text) !important;
+}
+
+.date-range-picker .rdp-nav_button:hover {
+  background: var(--grid) !important;
+}
+
+/* Table layout */
+.date-range-picker .rdp-table {
+  border-spacing: 2px !important;
+}
+
+.date-range-picker .rdp-head {
+  color: var(--text-weak) !important;
+}
+
+.date-range-picker .rdp-row {
+  margin-bottom: 2px !important;
+}
+
+.date-range-picker .rdp-cell {
+  padding: 2px !important;
+}
+
+/* Keyboard focus */
+.date-range-picker .rdp-day:focus-visible {
+  box-shadow: 0 0 0 2px var(--ring) !important;
+  outline: none !important;
+}
+
+/* Fallback attribute-based selectors (for other libraries) */
+.date-range-picker button[aria-selected="true"] {
+  background: var(--accent-strong) !important;
+  color: #fff !important;
+}
+
+.date-range-picker button[data-range="start"],
+.date-range-picker button[data-range-start] {
+  background: var(--accent-strong) !important;
+  color: #fff !important;
+}
+
+.date-range-picker button[data-range="end"],
+.date-range-picker button[data-range-end] {
+  background: var(--accent-strong) !important;
+  color: #fff !important;
+}
+
+.date-range-picker button[data-range="middle"],
+.date-range-picker button[data-in-range],
+.date-range-picker button[data-range-middle] {
+  background: var(--accent-weak) !important;
+  color: var(--text) !important;
+}
+
+.date-range-picker button[aria-disabled="true"] {
+  color: #475569 !important;
+  background: transparent !important;
+}
+
+.date-range-picker button[aria-current="date"] {
+  outline: 2px solid var(--ring) !important;
+  outline-offset: 2px !important;
+}

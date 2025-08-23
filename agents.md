@@ -5,10 +5,10 @@
 ---
 
 ## CURRENT FOCUS
-**Task:** Milestone 1 Complete — All tasks finished  
+**Task:** Task 16 Complete — Carrier resolution (live)  
 **Branch:** `main`  
-**Status:** Ready for Milestone 2  
-**Next:** Milestone 2 — Searoutes Live Provider
+**Status:** Task 16 complete, ready for Task 17  
+**Next:** Task 17 — Itinerary fetch & mapping (live)
 
 ---
 
@@ -253,8 +253,8 @@ curl -s "http://localhost:8000/api/schedules?page=1&pageSize=10" | jq '{count: (
 
 **Verify:** ✅
 ```bash
-curl -s -D /tmp/headers.txt "http://localhost:8003/api/schedules.csv" > /dev/null && cat /tmp/headers.txt | grep -i 'content-'
-curl -s "http://localhost:8003/api/schedules.csv?sort=etd" | head -5
+curl -s -D /tmp/headers.txt "http://localhost:8000/api/schedules.csv" > /dev/null && cat /tmp/headers.txt | grep -i 'content-'
+curl -s "http://localhost:8000/api/schedules.csv?sort=etd" | head -5
 ```
 
 ### Task 11: Row "Legs" details (frontend) ✅ COMPLETE
@@ -291,10 +291,10 @@ curl -sI "http://localhost:8000/api/schedules.xlsx?origin=EGALY&destination=MATN
 - Itineraries (live schedules): `GET /itinerary/v2/execution` with `fromDate`, `toDate` for the departure window.
 - Optional: `GET /itinerary/v2/proformas` for scheduled services; consider CO₂ endpoints later.
 
-### Task 14: Provider toggle & config (server-side only)
+### Task 14: Provider toggle & config (server-side only) ✅ COMPLETE
 **Files:** `backend/app/providers/searoutes.py`, `backend/app/main.py`, `backend/requirements.txt`, `.env.example`  
 **Steps:**
-- [ ] Add `.env.example`:
+- [x] Add `.env.example`:
   ```
   PROVIDER=fixtures             # fixtures | searoutes
   SEAROUTES_BASE_URL=https://api.searoutes.com
@@ -302,16 +302,20 @@ curl -sI "http://localhost:8000/api/schedules.xlsx?origin=EGALY&destination=MATN
   SEAROUTES_ACCEPT_VERSION=
   API_TIMEOUT_SECONDS=10
   ```
-- [ ] In `main.py`, select provider via `PROVIDER` env.
-- [ ] Add `httpx` client with base URL, timeout, and **2 retries** on 429/5xx.
-- [ ] (Dev-only) you may load env via `python-dotenv` if helpful.
+- [x] In `main.py`, select provider via `PROVIDER` env.
+- [x] Add `httpx` client with base URL, timeout, and **2 retries** on 429/5xx.
+- [x] Dependency injection pattern for routes (provider is injected via `set_provider()`)
+- [x] Fixed `FixturesProvider` path issue (`../data/fixtures/schedules.sample.json`)
 
-**Verify:** environment loads; `PROVIDER=fixtures` remains default.
+**Verify:** environment loads; `PROVIDER=fixtures` remains default. ✅
+**Error Fixed:** `FileNotFoundError` on `data/fixtures/schedules.sample.json` - path was relative to backend dir, fixed to `../data/`
 
-### Task 15: Port resolution (live)
+### Task 15: Port resolution (live) ✅ COMPLETE
 **Goal:** Accept either plain text or UN/LOCODE and resolve to a port.
-- [ ] Regex `^[A-Z]{2}[A-Z]{3}$` → treat as UN/LOCODE; else query by `?query=`.
-- [ ] Map top result to `{ name, locode, country }`.
+- [x] Regex `^[A-Z]{2}[A-Z]{3}$` → treat as UN/LOCODE; else query by `?query=`.
+- [x] Map top result to `{ name, locode, country }`.
+- [x] Handle multiple response formats from Searoutes API.
+- [x] Robust error handling for no results found.
 
 **Verify (requires key):**
 ```bash
@@ -322,9 +326,13 @@ print(p.resolve_port("EGALY")["locode"], p.resolve_port("Alexandria")["locode"])
 PY
 ```
 
-### Task 16: Carrier resolution (live)
-- [ ] Implement `resolve_carrier(scac_or_name)` → `{ name, scac, id }` from `/search/v2/carriers`.
-- [ ] Cache for 5 minutes in-process.
+### Task 16: Carrier resolution (live) ✅ COMPLETE
+**Goal:** Resolve carriers by SCAC or name with caching.
+- [x] Implement `resolve_carrier(scac_or_name)` → `{ name, scac, id }` from `/search/v2/carriers`.
+- [x] Cache for 5 minutes in-process.
+- [x] Handle multiple response formats from Searoutes API.
+- [x] Robust error handling for no results found.
+- [x] Case-insensitive cache keys.
 
 ### Task 17: Itinerary fetch & mapping (live)
 **Goal:** Fetch live itineraries and map to internal schema.
@@ -445,9 +453,8 @@ npm run preview -- --port 5175 --strictPort
 **Backend (dev)**
 ```bash
 cd backend
-export API_PORT=8003
-uvicorn app.main:app --host 0.0.0.0 --port $API_PORT --reload
-# API base: http://localhost:8003
+uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+# API base: http://localhost:8000
 ```
 
 ### Required env vars (frontend)
@@ -455,20 +462,20 @@ uvicorn app.main:app --host 0.0.0.0 --port $API_PORT --reload
 ```
 # .env (or .env.development)
 VITE_PORT=5175
-VITE_API_BASE=http://localhost:8003
+VITE_API_BASE=http://localhost:8000
 ```
 
 ### Ports & CORS contract (dev)
 
 * Frontend must run on **5175** (fixed). If the port is busy, the dev server should **fail** instead of auto-switching (`--strictPort`).
-* Backend must run on **8003** (fixed).
+* Backend must run on **8000** (fixed). **IMPORTANT: Never change ports when they're in use - kill existing processes instead.**
 * CORS allow-list must include:
   * `http://localhost:5175`
   * `http://127.0.0.1:5175`
 
 ### Verifying it works
 
-1. Start backend on **8003** → `GET http://localhost:8003/health` returns 200.
+1. Start backend on **8000** → `GET http://localhost:8000/health` returns 200.
 2. Start frontend on **5175** → `Search` loads, typing in ports shows suggestions, calendar opens.
 3. Check DevTools → no `.tsx` network requests (means Vite is compiling TS → JS correctly).
 

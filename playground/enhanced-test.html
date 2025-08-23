@@ -1,0 +1,787 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enhanced Shipping Schedule Search - Task 7b Test</title>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: #0a0f1a;
+            color: #e5e7eb;
+            font-family: system-ui, sans-serif;
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+        
+        // Mock API for testing - simulates the real API
+        const mockAPI = {
+            searchSchedules: async (params) => {
+                // Simulate network delay
+                await new Promise(resolve => setTimeout(resolve, 800));
+                
+                // Mock successful response
+                return {
+                    items: [
+                        {
+                            id: "1",
+                            origin: params.origin || "EGALY",
+                            destination: params.destination || "MATNG",
+                            etd: "2025-08-20T10:00:00Z",
+                            eta: "2025-08-25T14:00:00Z",
+                            vessel: "Test Vessel",
+                            voyage: "TV001",
+                            carrier: "Test Line",
+                            service: "Test Service",
+                            routingType: "Direct",
+                            transitDays: 5
+                        },
+                        {
+                            id: "2",
+                            origin: params.origin || "EGALY",
+                            destination: params.destination || "MATNG",
+                            etd: "2025-08-22T15:00:00Z",
+                            eta: "2025-08-28T09:00:00Z",
+                            vessel: "Sample Ship",
+                            voyage: "SS002",
+                            carrier: "Example Lines",
+                            service: "Express Service",
+                            routingType: "Transshipment",
+                            transitDays: 6
+                        }
+                    ],
+                    total: 2,
+                    page: 1,
+                    pageSize: 50
+                };
+            },
+            
+            searchPorts: async (query) => {
+                await new Promise(resolve => setTimeout(resolve, 200));
+                
+                const mockPorts = [
+                    { name: "Alexandria", locode: "EGALY", country: "EG", countryName: "Egypt" },
+                    { name: "Damietta", locode: "EGDAM", country: "EG", countryName: "Egypt" },
+                    { name: "Tangier", locode: "MATNG", country: "MA", countryName: "Morocco" },
+                    { name: "Rotterdam", locode: "NLRTM", country: "NL", countryName: "Netherlands" }
+                ];
+                
+                return mockPorts.filter(port => 
+                    port.name.toLowerCase().includes(query.toLowerCase()) ||
+                    port.locode.toLowerCase().includes(query.toLowerCase()) ||
+                    port.country.toLowerCase().includes(query.toLowerCase())
+                );
+            }
+        };
+
+        // Simple PortSelect component for testing
+        function PortSelect({ label, value, onChange, placeholder, disabled }) {
+            const [query, setQuery] = useState(value || "");
+            const [open, setOpen] = useState(false);
+            const [items, setItems] = useState([]);
+            const [loading, setLoading] = useState(false);
+            const boxRef = useRef(null);
+
+            const isLocode = (s) => /^[A-Z]{2}[A-Z]{3}$/.test(s.toUpperCase());
+
+            useEffect(() => {
+                if (value && value !== query) setQuery(value);
+            }, [value]);
+
+            useEffect(() => {
+                const q = query.trim();
+                if (q.length < 2 || isLocode(q)) {
+                    setItems([]);
+                    setOpen(false);
+                    return;
+                }
+                
+                setLoading(true);
+                const timer = setTimeout(async () => {
+                    try {
+                        const data = await mockAPI.searchPorts(q);
+                        setItems(data);
+                        setOpen(data.length > 0);
+                    } catch {
+                        setItems([]);
+                        setOpen(false);
+                    } finally {
+                        setLoading(false);
+                    }
+                }, 250);
+
+                return () => clearTimeout(timer);
+            }, [query]);
+
+            const pick = (locode) => {
+                onChange(locode.toUpperCase());
+                setQuery(locode.toUpperCase());
+                setOpen(false);
+            };
+
+            return (
+                <div ref={boxRef} style={{ position: "relative" }}>
+                    <label style={{ display: "block", fontSize: 12, color: "#94a3b8", marginBottom: 6 }}>
+                        {label}
+                    </label>
+                    <input
+                        type="text"
+                        placeholder={placeholder}
+                        value={query}
+                        disabled={disabled}
+                        onChange={(e) => {
+                            const v = e.target.value;
+                            setQuery(v);
+                            if (isLocode(v)) {
+                                onChange(v.toUpperCase());
+                            }
+                        }}
+                        onFocus={() => setOpen(items.length > 0)}
+                        style={{
+                            width: "100%",
+                            borderRadius: 12,
+                            background: "#0b1020",
+                            border: "1px solid rgba(255,255,255,.12)",
+                            color: "#e5e7eb",
+                            padding: "10px 12px",
+                            outline: "none",
+                        }}
+                    />
+                    <div style={{ fontSize: 12, color: "#94a3b8", marginTop: 4, minHeight: 18 }}>
+                        {isLocode(query) ? "Looks like a valid UN/LOCODE" : 
+                         loading ? "Searching…" : 
+                         open && items.length === 0 && query.length >= 2 ? "No matches" : ""}
+                    </div>
+
+                    {open && items.length > 0 && (
+                        <div style={{
+                            position: "absolute",
+                            left: 0,
+                            right: 0,
+                            zIndex: 20,
+                            background: "#0b1222",
+                            border: "1px solid rgba(255,255,255,.12)",
+                            borderRadius: 12,
+                            maxHeight: 240,
+                            overflowY: "auto",
+                        }}>
+                            {items.map((p, i) => {
+                                const display = `${p.name} (${p.locode}, ${p.country})`;
+                                return (
+                                    <div
+                                        key={`${p.locode}-${i}`}
+                                        onClick={() => pick(p.locode)}
+                                        style={{
+                                            padding: "8px 10px",
+                                            cursor: "pointer",
+                                            display: "flex",
+                                            justifyContent: "space-between",
+                                            gap: 8,
+                                        }}
+                                        onMouseEnter={(e) => e.target.style.background = "#0e1a32"}
+                                        onMouseLeave={(e) => e.target.style.background = "transparent"}
+                                    >
+                                        <span>{display}</span>
+                                        <span style={{ color: "#94a3b8", fontFamily: "ui-monospace, Menlo, Consolas, monospace" }}>
+                                            {p.countryName || ""}
+                                        </span>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
+                </div>
+            );
+        }
+
+        // Simple DateRange component for testing
+        function DateRange({ fromDate, toDate, onFromChange, onToChange, disabled }) {
+            const isValid = !fromDate || !toDate || fromDate <= toDate;
+
+            const inputStyle = {
+                width: "100%",
+                borderRadius: 12,
+                background: "#0b1020",
+                border: "1px solid rgba(255,255,255,.12)",
+                color: "#e5e7eb",
+                padding: "10px 12px",
+                outline: "none",
+                fontSize: "14px",
+            };
+
+            return (
+                <div style={{ display: "flex", gap: 16, alignItems: "flex-end" }}>
+                    <div style={{ flex: 1 }}>
+                        <label style={{ display: "block", fontSize: 12, color: "#94a3b8", marginBottom: 6 }}>
+                            Departure From
+                        </label>
+                        <input
+                            type="date"
+                            value={fromDate}
+                            disabled={disabled}
+                            onChange={(e) => onFromChange(e.target.value)}
+                            style={inputStyle}
+                        />
+                    </div>
+
+                    <div style={{ flex: 1 }}>
+                        <label style={{ display: "block", fontSize: 12, color: "#94a3b8", marginBottom: 6 }}>
+                            Departure To
+                        </label>
+                        <input
+                            type="date"
+                            value={toDate}
+                            disabled={disabled}
+                            onChange={(e) => onToChange(e.target.value)}
+                            style={inputStyle}
+                        />
+                    </div>
+
+                    <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: 12, color: "#ef4444", marginTop: 4, minHeight: 18 }}>
+                            {!isValid && fromDate && toDate && (
+                                <span>From date must be before or equal to To date</span>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        // Enhanced ScheduleTable component with Task 7b features
+        function ScheduleTable() {
+            // Form state
+            const [originLocode, setOriginLocode] = useState("");
+            const [destinationLocode, setDestinationLocode] = useState("");
+            const [fromDate, setFromDate] = useState("");
+            const [toDate, setToDate] = useState("");
+            const [equipment, setEquipment] = useState("");
+            const [carrier, setCarrier] = useState("");
+            const [routingType, setRoutingType] = useState("");
+            const [sort, setSort] = useState('etd');
+
+            // Results state
+            const [schedules, setSchedules] = useState([]);
+            const [loading, setLoading] = useState(false);
+            const [error, setError] = useState(null);
+            const [total, setTotal] = useState(0);
+
+            // Status line state (Task 7b)
+            const [lastSearchTime, setLastSearchTime] = useState(null);
+            const [lastSearchStatus, setLastSearchStatus] = useState(null);
+
+            const isDateValid = !fromDate || !toDate || fromDate <= toDate;
+            const canSearch = isDateValid;
+
+            // LocalStorage key for persistence (Task 7b)
+            const STORAGE_KEY = "searoutes-last-search";
+
+            // Save search parameters to localStorage (Task 7b)
+            const saveSearchParams = () => {
+                try {
+                    const params = {
+                        originLocode,
+                        destinationLocode,
+                        fromDate,
+                        toDate,
+                        equipment,
+                        carrier,
+                        routingType,
+                        sort,
+                    };
+                    localStorage.setItem(STORAGE_KEY, JSON.stringify(params));
+                } catch (err) {
+                    console.warn("Failed to save search params to localStorage:", err);
+                }
+            };
+
+            // Restore search parameters from localStorage (Task 7b)
+            const restoreSearchParams = () => {
+                try {
+                    const saved = localStorage.getItem(STORAGE_KEY);
+                    if (saved) {
+                        const params = JSON.parse(saved);
+                        setOriginLocode(params.originLocode || "");
+                        setDestinationLocode(params.destinationLocode || "");
+                        setFromDate(params.fromDate || "");
+                        setToDate(params.toDate || "");
+                        setEquipment(params.equipment || "");
+                        setCarrier(params.carrier || "");
+                        setRoutingType(params.routingType || "");
+                        setSort(params.sort || "etd");
+                    }
+                } catch (err) {
+                    console.warn("Failed to restore search params from localStorage:", err);
+                }
+            };
+
+            // Get default date range (today to today + 21 days) (Task 7b)
+            const getDefaultDateRange = () => {
+                const today = new Date();
+                const endDate = new Date();
+                endDate.setDate(today.getDate() + 21);
+                
+                return {
+                    from: today.toISOString().split('T')[0],
+                    to: endDate.toISOString().split('T')[0],
+                };
+            };
+
+            // Quick link handler (Task 7b)
+            const handleQuickLink = async (origin, destination) => {
+                const dates = getDefaultDateRange();
+                setOriginLocode(origin);
+                setDestinationLocode(destination);
+                setFromDate(dates.from);
+                setToDate(dates.to);
+                
+                // Clear any existing filters for fresh search
+                setCarrier("");
+                setEquipment("");
+                setRoutingType("");
+                setSort("etd");
+                
+                // Trigger search after a short delay to ensure state is updated
+                setTimeout(async () => {
+                    if (!loading) {
+                        await handleSearch();
+                    }
+                }, 100);
+            };
+
+            // Restore search params on component mount (Task 7b)
+            useEffect(() => {
+                restoreSearchParams();
+            }, []);
+
+            const handleSearch = async () => {
+                if (!canSearch) return;
+
+                setLoading(true);
+                setError(null);
+                setLastSearchStatus(null);
+
+                try {
+                    const params = {
+                        origin: originLocode || undefined,
+                        destination: destinationLocode || undefined,
+                        from: fromDate || undefined,
+                        to: toDate || undefined,
+                        equipment: equipment || undefined,
+                        carrier: carrier || undefined,
+                        routingType: routingType || undefined,
+                        sort,
+                    };
+
+                    const response = await mockAPI.searchSchedules(params);
+                    setSchedules(response.items);
+                    setTotal(response.total);
+                    
+                    // Update status line with success (Task 7b)
+                    const now = new Date();
+                    const timeString = now.toTimeString().slice(0, 5); // HH:MM format
+                    setLastSearchTime(timeString);
+                    setLastSearchStatus('success');
+                    
+                    // Save search params to localStorage (Task 7b)
+                    saveSearchParams();
+                } catch (err) {
+                    const errorMsg = err instanceof Error ? err.message : "An error occurred";
+                    setError(errorMsg);
+                    setSchedules([]);
+                    setTotal(0);
+                    setLastSearchStatus('error');
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            const formatDateTime = (isoString) => {
+                try {
+                    return new Date(isoString).toLocaleString();
+                } catch {
+                    return isoString;
+                }
+            };
+
+            // Styles
+            const containerStyle = {
+                maxWidth: "1400px",
+                margin: "0 auto",
+                padding: "20px",
+                fontFamily: "system-ui, sans-serif",
+                background: "#0a0f1a",
+                color: "#e5e7eb",
+                minHeight: "100vh",
+            };
+
+            const formStyle = {
+                background: "#0b1222",
+                border: "1px solid rgba(255,255,255,.12)",
+                borderRadius: 16,
+                padding: "24px",
+                marginBottom: "24px",
+            };
+
+            const gridStyle = {
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr",
+                gap: "20px",
+                marginBottom: "20px",
+            };
+
+            const inputStyle = {
+                width: "100%",
+                borderRadius: 12,
+                background: "#0b1020",
+                border: "1px solid rgba(255,255,255,.12)",
+                color: "#e5e7eb",
+                padding: "10px 12px",
+                outline: "none",
+                fontSize: "14px",
+            };
+
+            const selectStyle = {
+                ...inputStyle,
+                cursor: "pointer",
+            };
+
+            const buttonStyle = {
+                background: canSearch ? "#3b82f6" : "#374151",
+                color: canSearch ? "#ffffff" : "#9ca3af",
+                border: "none",
+                borderRadius: 12,
+                padding: "12px 24px",
+                fontSize: "14px",
+                fontWeight: 600,
+                cursor: canSearch ? "pointer" : "not-allowed",
+                transition: "all 0.2s",
+            };
+
+            // Task 7b styles
+            const quickLinkStyle = {
+                background: "#1e293b",
+                color: "#e5e7eb",
+                border: "1px solid rgba(255,255,255,.12)",
+                borderRadius: 8,
+                padding: "8px 16px",
+                fontSize: "14px",
+                fontWeight: 500,
+                cursor: "pointer",
+                transition: "all 0.2s",
+                marginRight: "12px",
+            };
+
+            const statusLineStyle = {
+                background: "#0b1222",
+                border: "1px solid rgba(255,255,255,.12)",
+                borderRadius: 8,
+                padding: "12px 16px",
+                marginBottom: "16px",
+                fontSize: "14px",
+                fontFamily: "monospace",
+            };
+
+            return (
+                <div style={containerStyle}>
+                    <h1 style={{ marginBottom: "24px", fontSize: "28px", fontWeight: 700 }}>
+                        Enhanced Shipping Schedule Search - Task 7b Demo
+                    </h1>
+
+                    {/* Quick Links (Task 7b) */}
+                    <div style={{ marginBottom: "24px" }}>
+                        <div style={{ marginBottom: "12px", fontSize: "14px", color: "#94a3b8", fontWeight: 500 }}>
+                            Quick Links
+                        </div>
+                        <div style={{ display: "flex", flexWrap: "wrap" }}>
+                            <button
+                                type="button"
+                                onClick={() => handleQuickLink("EGALY", "MATNG")}
+                                disabled={loading}
+                                style={{
+                                    ...quickLinkStyle,
+                                    opacity: loading ? 0.6 : 1,
+                                    cursor: loading ? "not-allowed" : "pointer",
+                                }}
+                                onMouseEnter={(e) => {
+                                    if (!loading) e.currentTarget.style.background = "#334155";
+                                }}
+                                onMouseLeave={(e) => {
+                                    if (!loading) e.currentTarget.style.background = "#1e293b";
+                                }}
+                            >
+                                EGALY → MATNG
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => handleQuickLink("EGDAM", "NLRTM")}
+                                disabled={loading}
+                                style={{
+                                    ...quickLinkStyle,
+                                    opacity: loading ? 0.6 : 1,
+                                    cursor: loading ? "not-allowed" : "pointer",
+                                }}
+                                onMouseEnter={(e) => {
+                                    if (!loading) e.currentTarget.style.background = "#334155";
+                                }}
+                                onMouseLeave={(e) => {
+                                    if (!loading) e.currentTarget.style.background = "#1e293b";
+                                }}
+                            >
+                                EGDAM → NLRTM
+                            </button>
+                        </div>
+                    </div>
+
+                    <form style={formStyle} onSubmit={(e) => { e.preventDefault(); handleSearch(); }}>
+                        <div style={gridStyle}>
+                            <PortSelect
+                                label="From Port"
+                                value={originLocode}
+                                onChange={setOriginLocode}
+                                placeholder="Start typing a country, city, or LOCODE"
+                                disabled={loading}
+                            />
+                            <PortSelect
+                                label="To Port"
+                                value={destinationLocode}
+                                onChange={setDestinationLocode}
+                                placeholder="Start typing a country, city, or LOCODE"
+                                disabled={loading}
+                            />
+                        </div>
+
+                        <div style={{ marginBottom: "20px" }}>
+                            <DateRange
+                                fromDate={fromDate}
+                                toDate={toDate}
+                                onFromChange={setFromDate}
+                                onToChange={setToDate}
+                                disabled={loading}
+                            />
+                        </div>
+
+                        <div style={gridStyle}>
+                            <div>
+                                <label style={{ display: "block", fontSize: 12, color: "#94a3b8", marginBottom: 6 }}>
+                                    Equipment Type
+                                </label>
+                                <select
+                                    value={equipment}
+                                    onChange={(e) => setEquipment(e.target.value)}
+                                    disabled={loading}
+                                    style={selectStyle}
+                                >
+                                    <option value="">All Equipment</option>
+                                    <option value="20DC">20' Dry Container</option>
+                                    <option value="40DC">40' Dry Container</option>
+                                    <option value="40HC">40' High Cube</option>
+                                </select>
+                            </div>
+
+                            <div>
+                                <label style={{ display: "block", fontSize: 12, color: "#94a3b8", marginBottom: 6 }}>
+                                    Sort By
+                                </label>
+                                <select
+                                    value={sort}
+                                    onChange={(e) => setSort(e.target.value)}
+                                    disabled={loading}
+                                    style={selectStyle}
+                                >
+                                    <option value="etd">Departure Date (ETD)</option>
+                                    <option value="transit">Transit Time</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "24px" }}>
+                            <button
+                                type="submit"
+                                disabled={!canSearch || loading}
+                                style={buttonStyle}
+                            >
+                                {loading ? "Searching..." : "Search Schedules"}
+                            </button>
+                        </div>
+                    </form>
+
+                    {/* Status Line (Task 7b) */}
+                    {(loading || lastSearchStatus || error) && (
+                        <div style={statusLineStyle}>
+                            {loading ? (
+                                <span style={{ color: "#fbbf24" }}>Searching...</span>
+                            ) : lastSearchStatus === 'success' && lastSearchTime ? (
+                                <span style={{ color: "#10b981" }}>
+                                    OK • {lastSearchTime} • {total} itineraries
+                                </span>
+                            ) : lastSearchStatus === 'error' ? (
+                                <span style={{ color: "#ef4444" }}>
+                                    Error {error ? `• ${error}` : ''}
+                                </span>
+                            ) : null}
+                        </div>
+                    )}
+
+                    {schedules.length > 0 && (
+                        <div style={{ marginBottom: "16px", fontSize: "14px", color: "#94a3b8" }}>
+                            Showing {schedules.length} of {total} schedules
+                        </div>
+                    )}
+
+                    {schedules.length > 0 ? (
+                        <div style={{ overflowX: "auto" }}>
+                            <table style={{
+                                width: "100%",
+                                borderCollapse: "collapse",
+                                background: "#0b1222",
+                                border: "1px solid rgba(255,255,255,.12)",
+                                borderRadius: 12,
+                                overflow: "hidden",
+                            }}>
+                                <thead>
+                                    <tr>
+                                        <th style={{
+                                            background: "#1e293b",
+                                            color: "#f1f5f9",
+                                            padding: "12px",
+                                            textAlign: "left",
+                                            fontWeight: 600,
+                                            fontSize: "14px",
+                                            borderBottom: "1px solid rgba(255,255,255,.12)",
+                                        }}>Origin</th>
+                                        <th style={{
+                                            background: "#1e293b",
+                                            color: "#f1f5f9",
+                                            padding: "12px",
+                                            textAlign: "left",
+                                            fontWeight: 600,
+                                            fontSize: "14px",
+                                            borderBottom: "1px solid rgba(255,255,255,.12)",
+                                        }}>Destination</th>
+                                        <th style={{
+                                            background: "#1e293b",
+                                            color: "#f1f5f9",
+                                            padding: "12px",
+                                            textAlign: "left",
+                                            fontWeight: 600,
+                                            fontSize: "14px",
+                                            borderBottom: "1px solid rgba(255,255,255,.12)",
+                                        }}>Carrier</th>
+                                        <th style={{
+                                            background: "#1e293b",
+                                            color: "#f1f5f9",
+                                            padding: "12px",
+                                            textAlign: "left",
+                                            fontWeight: 600,
+                                            fontSize: "14px",
+                                            borderBottom: "1px solid rgba(255,255,255,.12)",
+                                        }}>ETD</th>
+                                        <th style={{
+                                            background: "#1e293b",
+                                            color: "#f1f5f9",
+                                            padding: "12px",
+                                            textAlign: "left",
+                                            fontWeight: 600,
+                                            fontSize: "14px",
+                                            borderBottom: "1px solid rgba(255,255,255,.12)",
+                                        }}>ETA</th>
+                                        <th style={{
+                                            background: "#1e293b",
+                                            color: "#f1f5f9",
+                                            padding: "12px",
+                                            textAlign: "left",
+                                            fontWeight: 600,
+                                            fontSize: "14px",
+                                            borderBottom: "1px solid rgba(255,255,255,.12)",
+                                        }}>Transit</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {schedules.map((schedule) => (
+                                        <tr key={schedule.id}>
+                                            <td style={{
+                                                padding: "12px",
+                                                borderBottom: "1px solid rgba(255,255,255,.06)",
+                                                fontSize: "14px",
+                                            }}>{schedule.origin}</td>
+                                            <td style={{
+                                                padding: "12px",
+                                                borderBottom: "1px solid rgba(255,255,255,.06)",
+                                                fontSize: "14px",
+                                            }}>{schedule.destination}</td>
+                                            <td style={{
+                                                padding: "12px",
+                                                borderBottom: "1px solid rgba(255,255,255,.06)",
+                                                fontSize: "14px",
+                                            }}>{schedule.carrier}</td>
+                                            <td style={{
+                                                padding: "12px",
+                                                borderBottom: "1px solid rgba(255,255,255,.06)",
+                                                fontSize: "14px",
+                                            }}>{formatDateTime(schedule.etd)}</td>
+                                            <td style={{
+                                                padding: "12px",
+                                                borderBottom: "1px solid rgba(255,255,255,.06)",
+                                                fontSize: "14px",
+                                            }}>{formatDateTime(schedule.eta)}</td>
+                                            <td style={{
+                                                padding: "12px",
+                                                borderBottom: "1px solid rgba(255,255,255,.06)",
+                                                fontSize: "14px",
+                                            }}>{schedule.transitDays} days</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    ) : !loading && !error && (
+                        <div style={{
+                            textAlign: "center",
+                            padding: "48px",
+                            color: "#94a3b8",
+                            fontSize: "16px",
+                        }}>
+                            No schedules found. Try adjusting your search criteria or use the Quick Links above.
+                        </div>
+                    )}
+
+                    {/* Task 7b Feature List */}
+                    <div style={{
+                        marginTop: "40px",
+                        padding: "20px",
+                        background: "#0b1222",
+                        border: "1px solid rgba(255,255,255,.12)",
+                        borderRadius: 12,
+                        fontSize: "14px",
+                    }}>
+                        <h3 style={{ color: "#10b981", marginBottom: "16px" }}>Task 7b Features Implemented:</h3>
+                        <ul style={{ color: "#94a3b8", lineHeight: 1.6 }}>
+                            <li><strong>Status Line:</strong> Shows "OK • HH:MM • N itineraries" on success, "Error" on failure, "Searching..." during requests</li>
+                            <li><strong>Quick Links:</strong> EGALY→MATNG and EGDAM→NLRTM buttons that auto-fill form and trigger search</li>
+                            <li><strong>LocalStorage Persistence:</strong> All search parameters are saved and restored on page reload</li>
+                            <li><strong>Default Date Range:</strong> Quick links set today to today+21 days automatically</li>
+                            <li><strong>Status Timestamps:</strong> Updates with current time on each successful search</li>
+                        </ul>
+                        <p style={{ marginTop: "16px", color: "#64748b", fontSize: "12px" }}>
+                            Test by: 1) Fill form and search → reload page (parameters restored), 2) Click quick links (auto-search), 3) Check status line updates
+                        </p>
+                    </div>
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(React.createElement(ScheduleTable));
+    </script>
+</body>
+</html>

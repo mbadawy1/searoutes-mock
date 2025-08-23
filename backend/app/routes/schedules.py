@@ -6,11 +6,16 @@ import io
 from openpyxl import Workbook
 from openpyxl.utils import get_column_letter
 
-from ..providers.fixtures import FixturesProvider
-from ..providers.base import ScheduleFilter, Page
+from ..providers.base import ScheduleFilter, Page, ScheduleProvider
 
 router = APIRouter()
-provider = FixturesProvider()
+provider: ScheduleProvider = None  # Will be injected by main.py
+
+
+def set_provider(schedule_provider: ScheduleProvider):
+    """Inject the schedule provider instance."""
+    global provider
+    provider = schedule_provider
 
 
 def extract_locode(location: str) -> str:

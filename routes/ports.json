@@ -1,0 +1,144 @@
+[
+  {
+    "name": "Alexandria",
+    "locode": "EGALY",
+    "country": "EG",
+    "countryName": "Egypt",
+    "aliases": [
+      "ALX",
+      "Dekheila",
+      "El Iskandariya"
+    ]
+  },
+  {
+    "name": "Damietta",
+    "locode": "EGDAM",
+    "country": "EG",
+    "countryName": "Egypt",
+    "aliases": [
+      "Dumyat"
+    ]
+  },
+  {
+    "name": "Port Said",
+    "locode": "EGPSD",
+    "country": "EG",
+    "countryName": "Egypt",
+    "aliases": [
+      "Port Said East",
+      "Port Said West"
+    ]
+  },
+  {
+    "name": "Ain Sokhna",
+    "locode": "EGSOK",
+    "country": "EG",
+    "countryName": "Egypt",
+    "aliases": [
+      "Sokhna",
+      "El Sokhna"
+    ]
+  },
+  {
+    "name": "Tanger-Med",
+    "locode": "MATNG",
+    "country": "MA",
+    "countryName": "Morocco",
+    "aliases": [
+      "Tangier Med",
+      "Tanger Med"
+    ]
+  },
+  {
+    "name": "Casablanca",
+    "locode": "MACAS",
+    "country": "MA",
+    "countryName": "Morocco",
+    "aliases": []
+  },
+  {
+    "name": "Valencia",
+    "locode": "ESVLC",
+    "country": "ES",
+    "countryName": "Spain",
+    "aliases": []
+  },
+  {
+    "name": "Algeciras",
+    "locode": "ESALG",
+    "country": "ES",
+    "countryName": "Spain",
+    "aliases": []
+  },
+  {
+    "name": "Rotterdam",
+    "locode": "NLRTM",
+    "country": "NL",
+    "countryName": "Netherlands",
+    "aliases": [
+      "Euromax",
+      "Maasvlakte"
+    ]
+  },
+  {
+    "name": "Antwerp",
+    "locode": "BEANR",
+    "country": "BE",
+    "countryName": "Belgium",
+    "aliases": [
+      "Antwerpen",
+      "Antwerp-Bruges"
+    ]
+  },
+  {
+    "name": "Hamburg",
+    "locode": "DEHAM",
+    "country": "DE",
+    "countryName": "Germany",
+    "aliases": []
+  },
+  {
+    "name": "Gioia Tauro",
+    "locode": "ITGIT",
+    "country": "IT",
+    "countryName": "Italy",
+    "aliases": []
+  },
+  {
+    "name": "Genoa",
+    "locode": "ITGOA",
+    "country": "IT",
+    "countryName": "Italy",
+    "aliases": [
+      "Genova"
+    ]
+  },
+  {
+    "name": "La Spezia",
+    "locode": "ITSPE",
+    "country": "IT",
+    "countryName": "Italy",
+    "aliases": []
+  },
+  {
+    "name": "Piraeus",
+    "locode": "GRPIR",
+    "country": "GR",
+    "countryName": "Greece",
+    "aliases": [
+      "Pireo",
+      "Peiraias"
+    ]
+  },
+  {
+    "name": "Istanbul",
+    "locode": "TRIST",
+    "country": "TR",
+    "countryName": "T\u00fcrkiye",
+    "aliases": [
+      "Ambarli",
+      "Kumport",
+      "Marport"
+    ]
+  }
+]

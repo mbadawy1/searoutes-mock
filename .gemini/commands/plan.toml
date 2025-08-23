@@ -1,0 +1,26 @@
+name = "plan"
+description = "Summarize the top task from AGENTS.md and bound the work within strict scope/contract guardrails."
+prompt = '''You are assisting on the Shipping Line Schedule App.
+Source of truth: AGENTS.md (it overrides everything else). Read only the CURRENT FOCUS / top item in the Task Queue.
+
+Output exactly these sections (no extra prose):
+1) Task summary — 2–4 sentences.
+2) Files to touch (≤5) — absolute repo paths with one-line purpose for each.
+3) LOC estimate — total lines you intend to change/add (≤ ~300).
+4) Risks & mitigations — bullets on how you’ll keep within contracts and scope.
+5) Minimal plan — 3–6 numbered steps (each step small and atomic).
+
+Hard guardrails you MUST follow:
+- Do not propose edits outside the current task.
+- Preserve API envelope: {"items":[...],"total":int,"page":int,"pageSize":int}
+- Server-side sorting only (?sort=etd|transit; default=etd); UI just flips the query param.
+- Exports = all filtered+sorted rows (ignore pagination) with column order:
+  originLocode,destinationLocode,etd,eta,vessel,voyage,carrier,routingType,transitDays,service
+- Public accepts from/to, but internally use date_from/date_to (Pydantic aliases).
+- No secrets in client; keys live server-side only.
+- Scope ≤ ~300 LOC and ≤ 5 files total.
+- Touch only these directories unless AGENTS.md says otherwise: backend, frontend, data, providers.
+- If ambiguous, choose the smallest viable change and note a TODO.
+- Plan for a quick verification (curl or pytest) at the end of /implement.
+
+Only produce the 5 sections above.'''

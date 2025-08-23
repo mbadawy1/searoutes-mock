@@ -1,0 +1,10 @@
+Bash(python -V && pip --version)
+Bash(cd "/mnt/c/Visual Studio/Python/searoutes-mock" && python -m venv .venv)
+Bash(source "/mnt/c/Visual Studio/Python/searoutes-mock/.venv/bin/activate" && python -m pip install --upgrade pip wheel setuptools)
+Bash(source "/mnt/c/Visual Studio/Python/searoutes-mock/.venv/bin/activate" && pip install -r backend/requirements.txt)
+Bash(source "/mnt/c/Visual Studio/Python/searoutes-mock/.venv/bin/activate" && uvicorn backend.app.main:app --reload --host 0.0.0.0 --port 8000)
+
+
+Where i stopped at 18.08.2025.
+
+Next: Task 5b (Carriers search) - another stepping stone toward calling Searoutes /search/v2/carriers endpoint! Should we continue with that? 
