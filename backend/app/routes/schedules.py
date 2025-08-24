@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Query, HTTPException
 from fastapi.responses import Response
 from typing import Optional
 import csv
@@ -7,6 +7,17 @@ from openpyxl import Workbook
 from openpyxl.utils import get_column_letter
 
 from ..providers.base import ScheduleFilter, Page, ScheduleProvider
+
+# Import exception classes for error handling
+try:
+    from ..providers.searoutes import SearoutesError, SearoutesRateLimitError, SearoutesAPIError
+except ImportError:
+    # Fallback in case Searoutes provider is not available
+    class SearoutesError(Exception):
+        def to_dict(self):
+            return {"code": "SEAROUTES_ERROR", "message": str(self)}
+    
+    SearoutesRateLimitError = SearoutesAPIError = SearoutesError
 
 router = APIRouter()
 provider: ScheduleProvider = None  # Will be injected by main.py
@@ -91,7 +102,17 @@ def list_schedules(
     )
 
     page_params = Page(page=page, pageSize=pageSize)
-    items, meta = provider.list(filt, page_params)
+    
+    try:
+        items, meta = provider.list(filt, page_params)
+    except SearoutesRateLimitError as e:
+        raise HTTPException(status_code=429, detail=e.to_dict())
+    except SearoutesAPIError as e:
+        # Map to appropriate HTTP status or default to 502 for upstream errors
+        status_code = 502 if e.code and "HTTP_5" in e.code else 400
+        raise HTTPException(status_code=status_code, detail=e.to_dict())
+    except SearoutesError as e:
+        raise HTTPException(status_code=502, detail=e.to_dict())
 
     # Return the exact envelope format specified in the contract
     return {

@@ -5,10 +5,10 @@
 ---
 
 ## CURRENT FOCUS
-**Task:** Task 16 Complete — Carrier resolution (live)  
+**Task:** Task 18 Complete — Error handling + rate limits  
 **Branch:** `main`  
-**Status:** Task 16 complete, ready for Task 17  
-**Next:** Task 17 — Itinerary fetch & mapping (live)
+**Status:** Task 18 complete, Milestone 2 deliverables achieved  
+**Next:** Milestone 2 complete - provider toggle works with robust error handling
 
 ---
 
@@ -334,27 +334,39 @@ PY
 - [x] Robust error handling for no results found.
 - [x] Case-insensitive cache keys.
 
-### Task 17: Itinerary fetch & mapping (live)
+### Task 17: Itinerary fetch & mapping (live) ✅ COMPLETE
 **Goal:** Fetch live itineraries and map to internal schema.
-- [ ] Call `/itinerary/v2/execution` with:
+- [x] Call `/itinerary/v2/execution` with:
   - Origin/destination: pass `fromLocode`/`toLocode` when UN/LOCODE given; otherwise resolve.
   - Date window: `fromDate`, `toDate` (UTC ISO-8601).
   - Carrier: resolve to SCAC when provided.
-- [ ] Map response:
+- [x] Map response:
   - `etd` = first leg departure; `eta` = last leg arrival (UTC ISO).
   - `routingType`: `"Direct"` when one leg, else `"Transshipment"`.
   - `transitDays`: compute if absent (`ceil((eta-etd)/86400)`).
   - `vessel`, `voyage`, `imo` best-effort mapping.
+- [x] Handle multiple response formats from Searoutes API.
+- [x] Client-side filtering and sorting implementation.
+- [x] Comprehensive error handling for port/carrier resolution failures.
+- [x] Complete Schedule and ScheduleLeg mapping with all fields.
 
 **Verify:**
 ```bash
 curl -s "http://localhost:8000/api/schedules?origin=EGALY&destination=ESVLC&from=2025-08-20&to=2025-09-05" | jq '.items | length'
 ```
 
-### Task 18: Error handling + rate limits
-- [ ] Map 4xx/5xx to structured errors `{ code, message }`; surface Searoutes request id if present.
-- [ ] Backoff on 429 with jitter; cap retries; propagate a helpful error to the client.
-- [ ] Unit test with `httpx.MockTransport`.
+### Task 18: Error handling + rate limits ✅ COMPLETE
+**Goal:** Production-ready error handling and rate limiting.
+- [x] Map 4xx/5xx to structured errors `{ code, message }`; surface Searoutes request id if present.
+- [x] Backoff on 429 with jitter; cap retries; propagate a helpful error to the client.
+- [x] Unit test with `httpx.MockTransport`.
+- [x] Custom exception hierarchy with SearoutesError, SearoutesRateLimitError, SearoutesAPIError.
+- [x] Exponential backoff with jitter for 429 and 5xx errors.
+- [x] Request ID extraction from headers and response body.
+- [x] Comprehensive error message extraction from various response formats.
+- [x] Proper error propagation to FastAPI routes with appropriate HTTP status codes.
+- [x] Network error handling with retries.
+- [x] Complete test coverage with httpx.MockTransport.
 
 **Exit criteria for Milestone 2**
 - [ ] Provider toggle works (`fixtures` ↔ `searoutes`) with no API/UI breaking changes.
