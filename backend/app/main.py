@@ -1,12 +1,13 @@
 import os
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from .routes.schedules import router as schedules_router
-from .routes.ports import router as ports_router
-from .routes.carriers import router as carriers_router
 from .providers.fixtures import FixturesProvider
 from .providers.searoutes import SearoutesProvider
+from .routes.carriers import router as carriers_router
+from .routes.ports import router as ports_router
+from .routes.schedules import router as schedules_router
 
 # Provider selection via environment variable
 provider_name = os.environ.get("PROVIDER", "fixtures").lower()
@@ -21,7 +22,7 @@ app = FastAPI(title="Searoutes Mock API", version="1.0.0")
 origins = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
-    "http://localhost:5175", 
+    "http://localhost:5175",
     "http://127.0.0.1:5175",
 ]
 
@@ -35,6 +36,7 @@ app.add_middleware(
 
 # Inject provider into routes
 from .routes.schedules import set_provider
+
 set_provider(schedule_provider)
 
 # Register routers

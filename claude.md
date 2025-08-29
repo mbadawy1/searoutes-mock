@@ -27,6 +27,76 @@
 
 ---
 
+---
+
+## 🔀 Branch & PR Workflow (per task)
+
+> One task → one branch → one PR → merge → next task. Do **not** stack multiple tasks on a single branch.
+
+### 0) Start the task (create working branch)
+```bash
+# Ensure local dev is current
+git checkout dev
+git pull
+
+# Branch name: feat/<short-slug>
+# Example for Task 19: Smart result selection
+git checkout -b feat/sr-smart-selection
+```
+
+### 1) Implement
+- Keep diffs ≤ ~300 LOC and ≤ 5 files (unless the task explicitly allows more).
+- Honor **Contracts** (response envelope, sort behaviour, CSV column order).
+- **No secrets** in client code; server-only keys for live providers.
+
+### 2) Preflight
+```bash
+pip install black ruff pytest || true
+black --check backend -l 100 || true
+ruff backend --select ALL --ignore D || true
+pytest -q || true
+
+# Frontend (if touched)
+npm ci || true
+npm run -s build || true
+```
+
+### 3) Commit with a clear message
+```bash
+git add -A
+git commit -m "feat(sr): Task 19 smart result selection (ports/carriers ranking)"
+```
+
+### 4) Push & open PR to `dev`
+```bash
+git push -u origin feat/sr-smart-selection
+
+# If GitHub CLI is available:
+gh pr create --base dev --head feat/sr-smart-selection   --title "Task 19: Smart result selection"   --body-file .github/pull_request_template.md || true
+```
+
+### 5) After review & merge
+```bash
+# Update local and delete branch locally & on origin
+git checkout dev
+git pull
+git branch -d feat/sr-smart-selection || true
+git push origin --delete feat/sr-smart-selection || true
+```
+
+### 6) Advance the queue
+- Update **AGENTS.md → CURRENT FOCUS** to the next task and set its branch name.
+- Repeat from step 0.
+
+**Branch naming tips:**  
+- Features: `feat/<slug>`; Fixes: `fix/<slug>`; Chores: `chore/<slug>`  
+- Use short kebab-case slugs, e.g. `feat/sr-graceful-no-results`, `fix/port-typeahead-timeout`.
+
+**Protected branches:**  
+- Protect `main` (and usually `dev`), require PR with passing CI (black/ruff/pytest, `npm run build`).
+
+---
+
 ## 📐 Contracts You Must Honor
 - **Response envelope:** `{ "items": [...], "total": int, "page": int, "pageSize": int }`
 - **Sorting:** `?sort=etd|transit` (default `etd`) — server-side only

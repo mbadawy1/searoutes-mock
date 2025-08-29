@@ -1,15 +1,17 @@
 import json
-from pathlib import Path
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import List, Tuple
 
-from .base import ScheduleFilter, Page, ScheduleProvider
 from ..models.schedule import Schedule
+from .base import Page, ScheduleFilter, ScheduleProvider
 
 
 class FixturesProvider(ScheduleProvider):
-    def __init__(self, path: str = "../data/fixtures/schedules.sample.json") -> None:
-        self.path = Path(path)
+    def __init__(self, path: str = "data/fixtures/schedules.sample.json") -> None:
+        # Make path relative to project root
+        project_root = Path(__file__).parent.parent.parent.parent
+        self.path = project_root / path
 
     def _load(self) -> List[Schedule]:
         data = json.loads(self.path.read_text(encoding="utf-8"))
@@ -46,7 +48,9 @@ class FixturesProvider(ScheduleProvider):
             q = flt.carrier.lower()
             items = [x for x in items if q in x.carrier.lower()]
         if flt.equipment:
-            items = [x for x in items if x.equipment and x.equipment.lower() == flt.equipment.lower()]
+            items = [
+                x for x in items if x.equipment and x.equipment.lower() == flt.equipment.lower()
+            ]
         if flt.date_from:
             df = dt(flt.date_from)
             items = [x for x in items if dt(x.etd) >= df]
