@@ -1,4 +1,5 @@
-from typing import Protocol, List, Optional, Tuple
+from typing import List, Optional, Protocol, Tuple
+
 from pydantic import BaseModel, Field
 
 from ..models.schedule import Schedule
@@ -13,6 +14,7 @@ class ScheduleFilter(BaseModel):
     routingType: Optional[str] = None
     carrier: Optional[str] = None
     sort: Optional[str] = "etd"
+    nContainers: Optional[int] = 1  # Default to 1 container
 
     model_config = {"validate_by_name": True, "populate_by_name": True}
 

@@ -29,6 +29,7 @@ export interface Schedule {
   service?: string;
   equipment?: string; // "20DC", "40DC", "40HC", "40RF", etc.
   legs?: ScheduleLeg[]; // Detailed leg information for multi-leg journeys
+  hash?: string; // Searoutes itinerary hash for CO2 details lookup
 }
 
 export interface PortItem {
@@ -56,6 +57,7 @@ export interface SearchParams {
   sort?: 'etd' | 'transit';
   page?: number;
   pageSize?: number;
+  nContainers?: number; // Number of containers (default 1, affects CO₂ calculations)
 }
 
 export interface SchedulesResponse {

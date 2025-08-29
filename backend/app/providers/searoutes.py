@@ -1,3 +1,4 @@
+import logging
 import os
 import random
 import re
@@ -37,8 +38,13 @@ def _tokens(s: str) -> List[str]:
 
 
 PORT_NOISE_PREFIXES = (
-    "port of ", "porto di ", "puerto de ", "puerto del ",
-    "port ", "harbor of ", "harbour of ",
+    "port of ",
+    "porto di ",
+    "puerto de ",
+    "puerto del ",
+    "port ",
+    "harbor of ",
+    "harbour of ",
 )
 
 
@@ -47,7 +53,7 @@ def _strip_port_noise(s: str) -> str:
     s2 = s
     for p in PORT_NOISE_PREFIXES:
         if s2.startswith(p):
-            return s2[len(p):]
+            return s2[len(p) :]
     return s2
 
 
@@ -171,6 +177,9 @@ class SearoutesProvider(ScheduleProvider):
         if accept_version:
             headers["Accept-Version"] = accept_version
 
+        # Add custom User-Agent header for telemetry (Task 23)
+        headers["User-Agent"] = "ScheduleApp/1.0 (SearoutesIntegration)"
+
         self.client = client or httpx.Client(
             base_url=SEAROUTES_BASE_URL,
             headers=headers,
@@ -178,8 +187,10 @@ class SearoutesProvider(ScheduleProvider):
             # Note: We handle retries manually for better control over rate limits
         )
 
-        # In-memory cache for carrier lookups (5 minute TTL)
+        # In-memory cache for carrier lookups (1 hour TTL)
         self._carrier_cache: Dict[str, Tuple[Dict[str, str], float]] = {}
+        # In-memory cache for port lookups (1 hour TTL)
+        self._port_cache: Dict[str, Tuple[Dict[str, str], float]] = {}
 
     def _make_request(
         self, endpoint: str, params: Optional[Dict] = None, max_retries: int = 3
@@ -259,10 +270,17 @@ class SearoutesProvider(ScheduleProvider):
         return None
 
     def _extract_error_message(self, response: httpx.Response) -> str:
-        """Extract error message from response."""
+        """Extract error message from response with friendly error code mapping."""
         try:
             data = response.json()
             if isinstance(data, dict):
+                # Check for Searoutes error code first and map to friendly messages
+                error_code = data.get("code") or data.get("errorCode") or data.get("error_code")
+                if error_code:
+                    friendly_message = self._map_searoutes_error_code(str(error_code))
+                    if friendly_message:
+                        return friendly_message
+
                 # Try various error message fields
                 error_msg = (
                     data.get("message")
@@ -277,6 +295,17 @@ class SearoutesProvider(ScheduleProvider):
 
         # Fallback to HTTP status text
         return f"HTTP {response.status_code}: {response.reason_phrase}"
+
+    def _map_searoutes_error_code(self, error_code: str) -> Optional[str]:
+        """Map Searoutes error codes to friendly user messages."""
+        error_code_mappings = {
+            "3110": "Unknown origin/destination port",
+            "1071": "Carrier not found",
+            "1072": "Carrier not found",
+            # Already handled in _is_no_results_error, but including for completeness
+            "1110": "No routes found for the specified criteria",
+        }
+        return error_code_mappings.get(error_code)
 
     def resolve_port(self, port_query: str) -> Dict[str, str]:
         """Resolve port by UN/LOCODE or plain text query to {name, locode, country}.
@@ -293,6 +322,18 @@ class SearoutesProvider(ScheduleProvider):
             httpx.HTTPError: On API errors
             ValueError: If no results found
         """
+        # Check cache first (1 hour TTL)
+        cache_key = _ascii_norm(port_query)  # Use normalized key for better cache hits
+        current_time = time.time()
+
+        if cache_key in self._port_cache:
+            cached_result, cached_time = self._port_cache[cache_key]
+            if current_time - cached_time < 3600:  # 1 hour = 3600 seconds
+                return cached_result
+            else:
+                # Remove expired entry
+                del self._port_cache[cache_key]
+
         # Accept CC + XXX (last 3 can be alphanumeric), allow spaces/dashes in input
         clean_q = _alnum_only(port_query).upper()
         locode_pattern = re.compile(r"^[A-Z]{2}[A-Z0-9]{3}$")
@@ -300,8 +341,10 @@ class SearoutesProvider(ScheduleProvider):
 
         if is_locode_query:
             params = {"locode": clean_q}
+            logging.debug(f"Port resolution: Using LOCODE parameter for query '{port_query}'")
         else:
             params = {"query": port_query}  # keep original for Searoutes' search semantics
+            logging.debug(f"Port resolution: Using name query parameter for query '{port_query}'")
 
         response = self._make_request("/geocoding/v2/port", params=params)
 
@@ -337,11 +380,16 @@ class SearoutesProvider(ScheduleProvider):
         best_port = self._rank_ports(ports_list, port_query, is_locode_query)
 
         # Map to internal format using robust extraction
-        return {
+        result = {
             "name": _port_name(best_port),
             "locode": _port_locode(best_port),
             "country": _port_country(best_port),
         }
+
+        # Cache the result
+        self._port_cache[cache_key] = (result, current_time)
+
+        return result
 
     def _rank_ports(self, ports: List[dict], query: str, is_locode_query: bool) -> dict:
         """
@@ -360,7 +408,7 @@ class SearoutesProvider(ScheduleProvider):
             name = _port_name(p)
             locode = _port_locode(p)
             size_num = _port_size(p)
-            
+
             name_norm = _ascii_norm(name)
             name_tokens = _tokens(name)
             locode_up = _alnum_only(locode).upper()
@@ -373,14 +421,11 @@ class SearoutesProvider(ScheduleProvider):
             # Strip port noise for better startswith matching
             name_for_sw = _strip_port_noise(name_norm)
             startswith = name_for_sw.startswith(q_norm)
-            
+
             # Tighter contains: token-based and raw substring
             has_tokens = bool(q_tokens)
-            token_contains = (
-                has_tokens and all(
-                    any(t.startswith(tok) or t == tok for t in name_tokens)
-                    for tok in q_tokens
-                )
+            token_contains = has_tokens and all(
+                any(t.startswith(tok) or t == tok for t in name_tokens) for tok in q_tokens
             )
             contains = token_contains or (q_norm in name_norm)
 
@@ -433,13 +478,13 @@ class SearoutesProvider(ScheduleProvider):
             httpx.HTTPError: On API errors
             ValueError: If no results found
         """
-        # Check cache first (5 minute TTL)
+        # Check cache first (1 hour TTL)
         cache_key = _ascii_norm(scac_or_name)  # Use normalized key for better cache hits
         current_time = time.time()
 
         if cache_key in self._carrier_cache:
             cached_result, cached_time = self._carrier_cache[cache_key]
-            if current_time - cached_time < 300:  # 5 minutes = 300 seconds
+            if current_time - cached_time < 3600:  # 1 hour = 3600 seconds
                 return cached_result
             else:
                 # Remove expired entry
@@ -499,24 +544,21 @@ class SearoutesProvider(ScheduleProvider):
             # Use robust field extraction
             name = _carrier_name(c)
             scac = _carrier_scac(c)
-            
+
             name_norm = _ascii_norm(name)
             scac_up = _alnum_only(scac).upper()
             name_tokens = _tokens(name)
 
             exact_scac = scac_up and q_scac and scac_up == q_scac
             exact_name = name_norm and q_norm and name_norm == q_norm
-            
+
             # Improved startswith / contains logic
             startswith = name_norm.startswith(q_norm)
-            
+
             # Tighter contains: token-based and raw substring
             has_tokens = bool(q_tokens)
-            token_contains = (
-                has_tokens and all(
-                    any(t.startswith(tok) or t == tok for t in name_tokens)
-                    for tok in q_tokens
-                )
+            token_contains = has_tokens and all(
+                any(t.startswith(tok) or t == tok for t in name_tokens) for tok in q_tokens
             )
             contains = token_contains or (q_norm in name_norm)
 
@@ -549,6 +591,22 @@ class SearoutesProvider(ScheduleProvider):
         ranked = [extract(c) for c in carriers]
         ranked.sort()
         return ranked[0][2]
+
+    def _is_no_results_error(self, error: SearoutesAPIError) -> bool:
+        """Check if the error represents 'no itinerary found' (error code 1110)."""
+        # Check in error message for error code 1110
+        if "1110" in str(error.message):
+            return True
+
+        # Check for common "no results" phrases
+        no_results_phrases = [
+            "no itinerary found",
+            "no results",
+            "no itineraries",
+            "no routes found",
+        ]
+        error_msg_lower = str(error.message).lower()
+        return any(phrase in error_msg_lower for phrase in no_results_phrases)
 
     def list(self, flt: ScheduleFilter, page: Page) -> Tuple[List[Schedule], Page]:
         """Fetch live itineraries from Searoutes and map to internal Schedule format."""
@@ -604,9 +662,26 @@ class SearoutesProvider(ScheduleProvider):
             if flt.date_to:
                 params["toDate"] = flt.date_to
 
-            response = self._make_request("/itinerary/v2/execution", params=params)
+            # Add Searoutes sorting support
+            # Map sort=transit → sortBy=TRANSIT_TIME; for sort=etd, omit sortBy (Searoutes default order)
+            if flt.sort == "transit":
+                params["sortBy"] = "TRANSIT_TIME"
 
-            data = response.json()
+            # Add container count support for more accurate CO₂ calculations (Task 24)
+            if flt.nContainers and flt.nContainers > 0:
+                params["nContainers"] = flt.nContainers
+
+            try:
+                response = self._make_request("/itinerary/v2/execution", params=params)
+                data = response.json()
+            except SearoutesAPIError as e:
+                # Handle graceful no-results for error 1110 "no itinerary found"
+                if self._is_no_results_error(e):
+                    # Return empty results with HTTP 200, no 4xx in our API
+                    return [], Page(total=0, page=page.page, pageSize=page.pageSize)
+                else:
+                    # Re-raise other API errors
+                    raise
 
             # 4) Map response to Schedule items
             schedules = self._map_itineraries_to_schedules(data, origin_port, destination_port)
@@ -762,6 +837,9 @@ class SearoutesProvider(ScheduleProvider):
                 print(f"Error mapping leg {i}: {e}")
                 continue
 
+        # Extract hash for CO2 details lookup (Task 23)
+        hash_value = itinerary.get("hash") or itinerary.get("itineraryHash") or itinerary.get("id")
+
         return Schedule(
             id=itinerary.get("id") or str(uuid4()),
             origin=origin,
@@ -776,6 +854,7 @@ class SearoutesProvider(ScheduleProvider):
             carrier=carrier,
             service=service,
             legs=mapped_legs if len(mapped_legs) > 1 else None,
+            hash=hash_value,
         )
 
     def _apply_filters(self, schedules: List[Schedule], flt: ScheduleFilter) -> List[Schedule]:

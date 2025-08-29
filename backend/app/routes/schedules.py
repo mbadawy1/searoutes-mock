@@ -1,22 +1,29 @@
-from fastapi import APIRouter, Query, HTTPException
-from fastapi.responses import Response
-from typing import Optional
 import csv
 import io
+import re
+from datetime import datetime
+from typing import Optional
+
+from fastapi import APIRouter, HTTPException, Query
+from fastapi.responses import Response
 from openpyxl import Workbook
 from openpyxl.utils import get_column_letter
 
-from ..providers.base import ScheduleFilter, Page, ScheduleProvider
+from ..providers.base import Page, ScheduleFilter, ScheduleProvider
 
 # Import exception classes for error handling
 try:
-    from ..providers.searoutes import SearoutesError, SearoutesRateLimitError, SearoutesAPIError
+    from ..providers.searoutes import (
+        SearoutesAPIError,
+        SearoutesError,
+        SearoutesRateLimitError,
+    )
 except ImportError:
     # Fallback in case Searoutes provider is not available
     class SearoutesError(Exception):
         def to_dict(self):
             return {"code": "SEAROUTES_ERROR", "message": str(self)}
-    
+
     SearoutesRateLimitError = SearoutesAPIError = SearoutesError
 
 router = APIRouter()
@@ -29,6 +36,30 @@ def set_provider(schedule_provider: ScheduleProvider):
     provider = schedule_provider
 
 
+def normalize_locode_scac(value: Optional[str]) -> Optional[str]:
+    """Normalize LOCODE/SCAC: uppercase, strip spaces/hyphens."""
+    if not value:
+        return value
+    # Strip spaces and hyphens, then uppercase
+    return re.sub(r"[\s\-]", "", value).upper()
+
+
+def validate_iso_date(date_str: Optional[str], field_name: str) -> Optional[str]:
+    """Validate that date string is ISO-8601 format and return it, or raise HTTPException."""
+    if not date_str:
+        return date_str
+
+    try:
+        # Try to parse as ISO-8601 date
+        datetime.fromisoformat(date_str.replace("Z", "+00:00"))
+        return date_str
+    except ValueError:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid date format for '{field_name}'. Expected ISO-8601 format (e.g., '2025-08-20' or '2025-08-20T12:00:00').",
+        )
+
+
 def extract_locode(location: str) -> str:
     """
     Extract LOCODE from location string.
@@ -36,7 +67,7 @@ def extract_locode(location: str) -> str:
     """
     locode_map = {
         "Alexandria, EG": "EGALY",
-        "Tanger, MA": "MATNG", 
+        "Tanger, MA": "MATNG",
         "Rotterdam, NL": "NLRTM",
         "Damietta, EG": "EGDAM",
         "Valencia, ES": "ESVLC",
@@ -52,8 +83,8 @@ def extract_locode(location: str) -> str:
         "Jeddah, SA": "SAJED",
         # Add more mappings as needed
     }
-    
-    return locode_map.get(location, location.split(',')[0][:5].upper())
+
+    return locode_map.get(location, location.split(",")[0][:5].upper())
 
 
 @router.get("/api/schedules")
@@ -68,6 +99,7 @@ def list_schedules(
     sort: str = "etd",
     page: int = 1,
     pageSize: int = 50,
+    nContainers: int = 1,
 ):
     """
     List schedules with filtering, sorting, and pagination.
@@ -83,6 +115,7 @@ def list_schedules(
     - sort: Sort field (etd|transit)
     - page: Page number (1-based)
     - pageSize: Items per page
+    - nContainers: Number of containers (default 1, affects CO₂ calculations)
 
     Returns:
     - items: List of schedule objects
@@ -90,6 +123,16 @@ def list_schedules(
     - page: Current page number
     - pageSize: Items per page
     """
+    # Input hygiene & validation (Task 22)
+    # Validate ISO-8601 dates
+    date_from = validate_iso_date(date_from, "from")
+    date_to = validate_iso_date(date_to, "to")
+
+    # Normalize LOCODE/SCAC inputs
+    origin = normalize_locode_scac(origin)
+    destination = normalize_locode_scac(destination)
+    carrier = normalize_locode_scac(carrier)
+
     filt = ScheduleFilter(
         origin=origin,
         destination=destination,
@@ -99,10 +142,11 @@ def list_schedules(
         routingType=routingType,
         carrier=carrier,
         sort=sort,
+        nContainers=nContainers,
     )
 
     page_params = Page(page=page, pageSize=pageSize)
-    
+
     try:
         items, meta = provider.list(filt, page_params)
     except SearoutesRateLimitError as e:
@@ -136,10 +180,10 @@ def export_schedules_csv(
 ):
     """
     Export schedules as CSV with filtering and sorting.
-    
+
     This endpoint uses the same filters and sorting as the main schedules endpoint,
     but ignores pagination and returns all matching results in CSV format.
-    
+
     CSV columns (in order):
     originLocode,destinationLocode,etd,eta,vessel,voyage,carrier,routingType,transitDays,service
     """
@@ -162,46 +206,48 @@ def export_schedules_csv(
     # Create CSV content
     output = io.StringIO()
     writer = csv.writer(output)
-    
+
     # Write header row with exact column order from spec
-    writer.writerow([
-        "originLocode",
-        "destinationLocode", 
-        "etd",
-        "eta",
-        "vessel",
-        "voyage",
-        "carrier",
-        "routingType",
-        "transitDays",
-        "service"
-    ])
-    
+    writer.writerow(
+        [
+            "originLocode",
+            "destinationLocode",
+            "etd",
+            "eta",
+            "vessel",
+            "voyage",
+            "carrier",
+            "routingType",
+            "transitDays",
+            "service",
+        ]
+    )
+
     # Write data rows
     for item in items:
-        writer.writerow([
-            extract_locode(item.origin),
-            extract_locode(item.destination),
-            item.etd,
-            item.eta,
-            item.vessel,
-            item.voyage,
-            item.carrier,
-            item.routingType,
-            item.transitDays,
-            item.service or ""  # Handle None values
-        ])
-    
+        writer.writerow(
+            [
+                extract_locode(item.origin),
+                extract_locode(item.destination),
+                item.etd,
+                item.eta,
+                item.vessel,
+                item.voyage,
+                item.carrier,
+                item.routingType,
+                item.transitDays,
+                item.service or "",  # Handle None values
+            ]
+        )
+
     csv_content = output.getvalue()
     output.close()
-    
+
     # Return CSV with proper headers
     return Response(
         content=csv_content,
         media_type="text/csv",
-        headers={
-            "Content-Disposition": "attachment; filename=schedules.csv"
-        }
+        headers={"Content-Disposition": "attachment; filename=schedules.csv"},
     )
 
 
@@ -218,10 +264,10 @@ def export_schedules_xlsx(
 ):
     """
     Export schedules as Excel (.xlsx) with filtering and sorting.
-    
+
     This endpoint uses the same filters and sorting as the main schedules endpoint,
     but ignores pagination and returns all matching results in Excel format.
-    
+
     Creates a workbook with a "Schedules" sheet containing the same columns as CSV:
     originLocode,destinationLocode,etd,eta,vessel,voyage,carrier,routingType,transitDays,service
     """
@@ -245,11 +291,11 @@ def export_schedules_xlsx(
     wb = Workbook()
     ws = wb.active
     ws.title = "Schedules"
-    
+
     # Define headers with exact column order from spec
     headers = [
         "originLocode",
-        "destinationLocode", 
+        "destinationLocode",
         "etd",
         "eta",
         "vessel",
@@ -257,13 +303,13 @@ def export_schedules_xlsx(
         "carrier",
         "routingType",
         "transitDays",
-        "service"
+        "service",
     ]
-    
+
     # Write header row
     for col_idx, header in enumerate(headers, 1):
         ws.cell(row=1, column=col_idx, value=header)
-    
+
     # Write data rows
     for row_idx, item in enumerate(items, 2):  # Start from row 2 (after header)
         ws.cell(row=row_idx, column=1, value=extract_locode(item.origin))
@@ -276,25 +322,66 @@ def export_schedules_xlsx(
         ws.cell(row=row_idx, column=8, value=item.routingType)
         ws.cell(row=row_idx, column=9, value=item.transitDays)
         ws.cell(row=row_idx, column=10, value=item.service or "")
-    
+
     # Auto-adjust column widths
     for col_idx in range(1, len(headers) + 1):
         column_letter = get_column_letter(col_idx)
         ws.column_dimensions[column_letter].auto_size = True
-    
+
     # Save to BytesIO buffer
     output = io.BytesIO()
     wb.save(output)
     output.seek(0)
-    
+
     excel_content = output.getvalue()
     output.close()
-    
+
     # Return Excel with proper headers
     return Response(
         content=excel_content,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={
-            "Content-Disposition": "attachment; filename=schedules.xlsx"
-        }
+        headers={"Content-Disposition": "attachment; filename=schedules.xlsx"},
     )
+
+
+@router.get("/api/schedules/{hash}/co2")
+def get_co2_details(hash: str):
+    """
+    Get CO₂ details for a specific itinerary hash.
+
+    Proxies to Searoutes CO₂ API endpoint for detailed emissions information.
+
+    Args:
+        hash: Searoutes itinerary hash
+
+    Returns:
+        CO₂ details from Searoutes API
+
+    Raises:
+        HTTPException: If hash not found or API error
+    """
+    # Check if provider supports CO2 details (only Searoutes provider does)
+    if not hasattr(provider, "_make_request"):
+        raise HTTPException(status_code=501, detail="CO₂ details not supported by current provider")
+
+    try:
+        # Proxy request to Searoutes CO₂ API endpoint
+        response = provider._make_request(f"/co2/v2/execution/{hash}")
+        co2_data = response.json()
+
+        return co2_data
+
+    except Exception as e:
+        # Handle various error types from Searoutes API
+        if hasattr(e, "response") and e.response:
+            status_code = e.response.status_code
+            if status_code == 404:
+                raise HTTPException(
+                    status_code=404, detail=f"CO₂ details not found for hash: {hash}"
+                )
+            elif status_code >= 400:
+                raise HTTPException(
+                    status_code=status_code, detail=f"Searoutes API error: {str(e)}"
+                )
+
+        raise HTTPException(status_code=500, detail=f"Error retrieving CO₂ details: {str(e)}")
