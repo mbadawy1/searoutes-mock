@@ -249,3 +249,134 @@ class TestSearoutesSmartRanking:
         # it becomes "Alexandria" which is an exact match, beating contains match
         assert result["name"] == "Port of Alexandria"
         assert result["locode"] == "EGALY"
+
+
+class TestSearoutesErrorMapping:
+    """Test error code mapping functionality for Task 21."""
+    
+    def setup_method(self):
+        """Set up test fixtures."""
+        mock_client = Mock()
+        self.provider = SearoutesProvider(client=mock_client)
+    
+    def test_map_searoutes_error_code_3110_invalid_locode(self):
+        """Test mapping of error code 3110 (invalid LOCODE)."""
+        result = self.provider._map_searoutes_error_code("3110")
+        assert result == "Unknown origin/destination port"
+    
+    def test_map_searoutes_error_code_1071_carrier_not_found(self):
+        """Test mapping of error code 1071 (carrier not found)."""
+        result = self.provider._map_searoutes_error_code("1071")
+        assert result == "Carrier not found"
+    
+    def test_map_searoutes_error_code_1072_carrier_not_found(self):
+        """Test mapping of error code 1072 (carrier not found)."""
+        result = self.provider._map_searoutes_error_code("1072")
+        assert result == "Carrier not found"
+    
+    def test_map_searoutes_error_code_1110_no_results(self):
+        """Test mapping of error code 1110 (no itinerary found)."""
+        result = self.provider._map_searoutes_error_code("1110")
+        assert result == "No routes found for the specified criteria"
+    
+    def test_map_unknown_error_code_returns_none(self):
+        """Test that unknown error codes return None."""
+        result = self.provider._map_searoutes_error_code("9999")
+        assert result is None
+
+    def test_extract_error_message_with_friendly_mapping(self):
+        """Test error message extraction with friendly mapping."""
+        # Mock response with error code
+        mock_response = Mock()
+        mock_response.status_code = 400
+        mock_response.reason_phrase = "Bad Request"
+        mock_response.json.return_value = {
+            "code": "3110",
+            "message": "Invalid LOCODE provided"
+        }
+        
+        result = self.provider._extract_error_message(mock_response)
+        assert result == "Unknown origin/destination port"
+
+    def test_extract_error_message_fallback_to_original_message(self):
+        """Test error message extraction falls back to original message for unknown codes."""
+        mock_response = Mock()
+        mock_response.status_code = 400
+        mock_response.reason_phrase = "Bad Request"
+        mock_response.json.return_value = {
+            "code": "9999",
+            "message": "Some other error"
+        }
+        
+        result = self.provider._extract_error_message(mock_response)
+        assert result == "Some other error"
+
+
+class TestSearoutesCaching:
+    """Test caching functionality for Task 21."""
+    
+    def setup_method(self):
+        """Set up test fixtures."""
+        mock_client = Mock()
+        self.provider = SearoutesProvider(client=mock_client)
+    
+    def test_port_cache_stores_and_retrieves_results(self):
+        """Test that port cache stores and retrieves results correctly."""
+        import time
+        
+        # Mock the _make_request to return a port result
+        def mock_make_request(endpoint, params):
+            mock_response = Mock()
+            mock_response.json.return_value = [{
+                "name": "Test Port",
+                "locode": "TSTPT",
+                "country": "TS"
+            }]
+            return mock_response
+        
+        self.provider._make_request = Mock(side_effect=mock_make_request)
+        
+        # First call should hit the API
+        result1 = self.provider.resolve_port("TSTPT")
+        assert result1["name"] == "Test Port"
+        assert self.provider._make_request.call_count == 1
+        
+        # Second call should hit cache
+        result2 = self.provider.resolve_port("TSTPT") 
+        assert result2["name"] == "Test Port"
+        assert self.provider._make_request.call_count == 1  # No additional API call
+        
+        # Cache should contain the entry
+        assert len(self.provider._port_cache) == 1
+    
+    def test_carrier_cache_extended_ttl(self):
+        """Test that carrier cache uses 1-hour TTL."""
+        import time
+        
+        # Mock the _make_request to return a carrier result
+        def mock_make_request(endpoint, params):
+            mock_response = Mock()
+            mock_response.json.return_value = [{
+                "name": "Test Carrier",
+                "scac": "TSTC",
+                "id": "123"
+            }]
+            return mock_response
+        
+        self.provider._make_request = Mock(side_effect=mock_make_request)
+        
+        # First call should hit the API
+        result1 = self.provider.resolve_carrier("TSTC")
+        assert result1["name"] == "Test Carrier"
+        
+        # Verify cache entry exists and check TTL is reasonable (should be recent)
+        cache_key = list(self.provider._carrier_cache.keys())[0]
+        cached_result, cached_time = self.provider._carrier_cache[cache_key]
+        
+        assert cached_result["name"] == "Test Carrier"
+        assert abs(time.time() - cached_time) < 2  # Should be within 2 seconds of now
+        
+        # Second call should hit cache
+        result2 = self.provider.resolve_carrier("TSTC")
+        assert result2["name"] == "Test Carrier"
+        assert self.provider._make_request.call_count == 1  # No additional API call
